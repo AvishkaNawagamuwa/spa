@@ -248,6 +248,34 @@ router.put('/spas/:spaId/verify', asyncHandler(async (req, res) => {
 
         const result = await SpaModel.updateSpaStatus(spaId, action, admin_comments);
 
+        // Send email to spa owner if approved
+        if (action === 'approve') {
+            const spa = await SpaModel.getSpaById(spaId);
+            if (spa && spa.owner_email && spa.owner_nic) {
+                const { sendEmail } = require('../config/gmail');
+                const to = "yasirufonseka@yahoo.com"; // spa.owner_email;
+                const subject = 'Your Spa Registration is Approved!';
+                const body = `
+                    <h2>Welcome to LSA Spa Management</h2>
+                    <p>Your spa registration has been <b>approved</b> by the admin.</p>
+                    <p><b>Login Credentials:</b></p>
+                    <ul>
+                        <li><b>Username:</b> ${spa.owner_email}</li>
+                        <li><b>Password:</b> ${spa.owner_nic}</li>
+                    </ul>
+                    <p>You can now log in to the system using the above credentials.</p>
+                    <p>For security, please change your password after first login.</p>
+                    <br>
+                    <p>Thank you,<br>LSA Spa Management Team</p>
+                `;
+                try {
+                    await sendEmail(to, subject, body);
+                } catch (err) {
+                    console.error('Failed to send approval email:', err);
+                }
+            }
+        }
+
         res.json({
             success: true,
             message: `Spa ${action}d successfully`,
