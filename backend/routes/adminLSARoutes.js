@@ -218,12 +218,42 @@ router.get('/spas/:spaId', asyncHandler(async (req, res) => {
             success: true,
             data: spa
         });
-
     } catch (error) {
         console.error('Get spa details error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to fetch spa details',
+            error: error.message
+        });
+    }
+}));
+
+/**
+ * @route   GET /api/lsa/spas/:spaId/detailed
+ * @desc    Get detailed spa information with payment details
+ * @access  Private (Admin)
+ */
+router.get('/spas/:spaId/detailed', asyncHandler(async (req, res) => {
+    try {
+        const { spaId } = req.params;
+        const spa = await SpaModel.getSpaWithPaymentDetails(spaId);
+
+        if (!spa) {
+            return res.status(404).json({
+                success: false,
+                message: 'Spa not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: spa
+        });
+    } catch (error) {
+        console.error('Get detailed spa error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to fetch detailed spa information',
             error: error.message
         });
     }
@@ -1481,6 +1511,19 @@ router.post('/enhanced/payments/:id/approve', async (req, res) => {
         const { id } = req.params;
         const { notes } = req.body;
 
+        // First, get the payment details to check if it's an annual payment
+        const [paymentRows] = await db.execute(`
+            SELECT * FROM payments 
+            WHERE id = ? AND payment_method = 'bank_transfer'
+        `, [id]);
+
+        if (paymentRows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Payment not found' });
+        }
+
+        const payment = paymentRows[0];
+
+        // Update payment status
         await db.execute(`
             UPDATE payments SET 
                 payment_status = 'completed',
@@ -1488,6 +1531,42 @@ router.post('/enhanced/payments/:id/approve', async (req, res) => {
                 approved_by = 1
             WHERE id = ? AND payment_method = 'bank_transfer'
         `, [id]);
+        // Only check payment_type === 'annual'
+        if (payment.payment_type === 'annual') {
+            console.log(`🎯 Annual payment detected for SPA ${payment.spa_id}. Updating status to verified...`);
+            // First check if SPA exists
+            const [spaCheck] = await db.execute(`
+                    SELECT id, status FROM lsa_spa_management.spas WHERE id = ?
+                `, [payment.spa_id]);
+
+            if (spaCheck.length === 0) {
+                console.log(`❌ SPA with ID ${payment.spa_id} not found in database!`);
+                return res.json({ success: true, message: 'Bank transfer approved successfully, but SPA not found for status update' });
+            }
+
+            console.log(`📋 SPA found: ID ${payment.spa_id} - Current status: ${spaCheck[0].status}`);
+            // Update the status
+            const updateResult = await db.execute(`
+                    UPDATE lsa_spa_management.spas 
+                    SET status = 'verified', updated_at = NOW()
+                    WHERE id = ?
+                `, [payment.spa_id]);
+
+            console.log(`🔧 Update query executed. Affected rows: ${updateResult[0].affectedRows}`);
+
+            // Verify the update worked
+            const [updatedSpa] = await db.execute(`
+                    SELECT id, status FROM lsa_spa_management.spas WHERE id = ?
+                `, [payment.spa_id]);
+
+            if (updatedSpa.length > 0) {
+                console.log(`✅ SPA ${payment.spa_id} status successfully updated to '${updatedSpa[0].status}'`);
+            } else {
+                console.log(`❌ Failed to verify SPA status update for SPA ID: ${payment.spa_id}`);
+            }
+        } else {
+            console.log(`ℹ️ Non-annual payment approved for SPA ${payment.spa_id}. Status remains unchanged.`);
+        }
 
         res.json({ success: true, message: 'Bank transfer approved successfully' });
     } catch (error) {
@@ -1515,6 +1594,57 @@ router.post('/enhanced/payments/:id/reject', async (req, res) => {
     } catch (error) {
         console.error('Error rejecting bank transfer:', error);
         res.status(500).json({ success: false, error: 'Failed to reject bank transfer' });
+    }
+});
+
+// Manual SPA status update endpoint
+router.post('/enhanced/spa/:id/update-status', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status, reason } = req.body;
+
+        // Validate status
+        const validStatuses = ['verified', 'unverified', 'pending', 'rejected', 'blacklisted'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
+            });
+        }
+
+        // Get current SPA details
+        const [currentSpa] = await db.execute(`
+            SELECT id, spa_name, status as current_status FROM lsa_spa_management.spas WHERE id = ?
+        `, [id]);
+
+        if (currentSpa.length === 0) {
+            return res.status(404).json({ success: false, error: 'SPA not found' });
+        }
+
+        // Update SPA status
+        await db.execute(`
+            UPDATE lsa_spa_management.spas 
+            SET status = ?, updated_at = NOW()
+            WHERE id = ?
+        `, [status, id]);
+
+        // Log the status change
+        console.log(`🔄 Manual status update: SPA ${id} (${currentSpa[0].spa_name}) changed from '${currentSpa[0].current_status}' to '${status}'${reason ? ` - Reason: ${reason}` : ''}`);
+
+        res.json({
+            success: true,
+            message: `SPA status updated successfully from '${currentSpa[0].current_status}' to '${status}'`,
+            data: {
+                spa_id: id,
+                spa_name: currentSpa[0].spa_name,
+                old_status: currentSpa[0].current_status,
+                new_status: status,
+                updated_at: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('Error updating SPA status:', error);
+        res.status(500).json({ success: false, error: 'Failed to update SPA status' });
     }
 });
 

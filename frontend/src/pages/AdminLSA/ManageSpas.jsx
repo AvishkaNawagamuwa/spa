@@ -180,29 +180,38 @@ const ManageSpas = () => {
     const calculateStats = () => {
         const total = spas.length;
         const approved = spas.filter(spa =>
-            spa.verification_status === 'approved' || spa.status === 'verified' || spa.status === 'approved'
+            spa.status === 'approved' || spa.status === 'verified' || spa.verification_status === 'approved'
         ).length;
         const rejected = spas.filter(spa =>
-            spa.verification_status === 'rejected' || spa.status === 'rejected'
+            spa.status === 'rejected'
         ).length;
         const pending = spas.filter(spa =>
-            spa.verification_status === 'pending' || spa.status === 'pending'
+            spa.status === 'pending'
         ).length;
 
-        // Calculate approved sub-categories
-        const approvedSpas = spas.filter(spa =>
-            spa.verification_status === 'approved' || spa.status === 'verified' || spa.status === 'approved'
-        );
+        // Calculate sub-categories based on status
+        const verified = spas.filter(spa =>
+            spa.status === 'verified'
+        ).length;
+        const unverified = spas.filter(spa =>
+            spa.status === 'unverified'
+        ).length;
+        const blacklisted = spas.filter(spa =>
+            spa.status === 'blacklisted'
+        ).length;
 
-        const verified = approvedSpas.filter(spa =>
-            spa.payment_status === 'paid' && !spa.blacklist_reason
-        ).length;
-        const unverified = approvedSpas.filter(spa =>
-            spa.payment_status !== 'paid' && !spa.blacklist_reason
-        ).length;
-        const blacklisted = approvedSpas.filter(spa =>
-            spa.blacklist_reason
-        ).length;
+        // Debug: Log the blacklisted spas to verify count
+        const blacklistedSpas = spas.filter(spa => spa.status === 'blacklisted');
+        console.log('=== STATS DEBUG ===');
+        console.log('Total spas:', total);
+        console.log('Approved spas count:', approved);
+        console.log('Blacklisted spas count:', blacklisted);
+        console.log('All spa statuses:', spas.map(spa => ({
+            name: spa.spa_name,
+            status: spa.status,
+            verification_status: spa.verification_status
+        })));
+        console.log('Blacklisted spas:', blacklistedSpas);
 
         setStats({
             total,
@@ -231,15 +240,15 @@ const ManageSpas = () => {
             });
         }
 
-        // Main category filter
+        // Main category filter based on status
         filtered = filtered.filter(spa => {
             switch (activeTab) {
                 case 'approved':
-                    return spa.verification_status === 'approved' || spa.status === 'verified' || spa.status === 'approved';
+                    return spa.status === 'approved' || spa.status === 'verified' || spa.verification_status === 'approved';
                 case 'rejected':
-                    return spa.verification_status === 'rejected' || spa.status === 'rejected';
+                    return spa.status === 'rejected';
                 case 'pending':
-                    return spa.verification_status === 'pending' || spa.status === 'pending';
+                    return spa.status === 'pending';
                 default:
                     return true;
             }
@@ -250,11 +259,11 @@ const ManageSpas = () => {
             filtered = filtered.filter(spa => {
                 switch (approvedSubCategory) {
                     case 'verified':
-                        return spa.payment_status === 'paid' && !spa.blacklist_reason;
+                        return spa.status === 'verified';
                     case 'unverified':
-                        return spa.payment_status !== 'paid' && !spa.blacklist_reason;
+                        return spa.status === 'unverified';
                     case 'blacklisted':
-                        return spa.blacklist_reason;
+                        return spa.status === 'blacklisted';
                     default:
                         return true;
                 }
@@ -380,9 +389,32 @@ const ManageSpas = () => {
         }
     };
 
-    const handleViewDetails = (spa) => {
-        setSelectedSpa(spa);
-        setShowDetailsModal(true);
+    const handleViewDetails = async (spa) => {
+        try {
+            setLoading(true);
+
+            // Fetch detailed spa information with payment details
+            const response = await axios.get(`http://localhost:3001/api/lsa/spas/${spa.spa_id}/detailed`, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+
+            if (response.data.success) {
+                setSelectedSpa(response.data.data);
+                setShowDetailsModal(true);
+                console.log('Detailed spa data loaded:', response.data.data);
+            } else {
+                // Fallback to basic spa data if detailed fetch fails
+                setSelectedSpa(spa);
+                setShowDetailsModal(true);
+            }
+        } catch (error) {
+            console.error('Error fetching spa details:', error);
+            // Fallback to basic spa data
+            setSelectedSpa(spa);
+            setShowDetailsModal(true);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleViewDocument = async (spaId, documentType) => {
@@ -469,6 +501,57 @@ const ManageSpas = () => {
         }
     };
 
+    const handleViewPaymentSlip = (slipPath) => {
+        try {
+            if (slipPath) {
+                // Create full URL for payment slip
+                const fileUrl = slipPath.startsWith('http') ? slipPath : `http://localhost:3001${slipPath.startsWith('/') ? slipPath : '/' + slipPath}`;
+                window.open(fileUrl, '_blank');
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Payment slip not available.'
+                });
+            }
+        } catch (error) {
+            console.error('Error viewing payment slip:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to view payment slip. Please try again.'
+            });
+        }
+    };
+
+    const handleDownloadPaymentSlip = (slipPath, slipName) => {
+        try {
+            if (slipPath) {
+                // Create download link
+                const fileUrl = slipPath.startsWith('http') ? slipPath : `http://localhost:3001${slipPath.startsWith('/') ? slipPath : '/' + slipPath}`;
+                const link = document.createElement('a');
+                link.href = fileUrl;
+                link.download = slipName || slipPath.split('/').pop(); // Use slip name or extract from path
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'Payment slip not available for download.'
+                });
+            }
+        } catch (error) {
+            console.error('Error downloading payment slip:', error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Failed to download payment slip. Please try again.'
+            });
+        }
+    };
+
     const getStatusBadge = (spa) => {
         if (spa.blacklist_reason) {
             return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Blacklisted</span>;
@@ -529,7 +612,10 @@ const ManageSpas = () => {
         }
 
         // Approved spas (verified/unverified): Blacklist action
-        if ((spa.verification_status === 'approved' || spa.status === 'verified' || spa.status === 'approved') && !spa.blacklist_reason) {
+        // Only show blacklist button for approved spas that are NOT already blacklisted
+        if ((spa.verification_status === 'approved' || spa.status === 'verified' || spa.status === 'approved') &&
+            !spa.blacklist_reason &&
+            spa.status !== 'blacklisted') {
             actions.push(
                 <button
                     key="blacklist"
@@ -927,14 +1013,82 @@ const ManageSpas = () => {
                                 </div>
                             </div>
 
+                            {/* Registration Payment Details */}
+                            {selectedSpa.payments && selectedSpa.payments.length > 0 && (
+                                <div className="mt-6 space-y-4">
+                                    <h4 className="text-md font-semibold text-gray-800 border-b pb-2">Registration Payment Details</h4>
+                                    {selectedSpa.payments.map((payment, index) => (
+                                        <div key={payment.payment_id} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 rounded-lg p-4">
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Payment Type</label>
+                                                <p className="text-sm text-gray-900 capitalize">{payment.payment_type || 'Registration Fee'}</p>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Amount</label>
+                                                <p className="text-sm text-gray-900">
+                                                    {payment.amount ? `LKR ${parseFloat(payment.amount).toLocaleString()}` : 'N/A'}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Payment Status</label>
+                                                <div className="mt-1">
+                                                    {payment.payment_status === 'completed' || payment.payment_status === 'paid' ? (
+                                                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                                            ✅ Paid
+                                                        </span>
+                                                    ) : payment.payment_status === 'pending' || payment.payment_status === 'pending_approval' ? (
+                                                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                            ⏳ Pending
+                                                        </span>
+                                                    ) : payment.payment_status === 'rejected' ? (
+                                                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                                            ❌ Rejected
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                            {payment.payment_status || 'Unknown'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm font-medium text-gray-500">Created Date</label>
+                                                <p className="text-sm text-gray-900">
+                                                    {payment.payment_created_at ? new Date(payment.payment_created_at).toLocaleDateString() : 'N/A'}
+                                                </p>
+                                            </div>
+                                            {(payment.slip_path || payment.bank_slip_path) && (
+                                                <div className="md:col-span-2">
+                                                    <label className="text-sm font-medium text-gray-500">Payment Slip</label>
+                                                    <div className="mt-2 flex gap-2">
+                                                        <button
+                                                            onClick={() => handleViewPaymentSlip(payment.slip_path || payment.bank_slip_path)}
+                                                            className="flex items-center gap-1 px-3 py-1 bg-[#001F3F] text-white text-xs rounded hover:bg-opacity-90 transition-colors"
+                                                        >
+                                                            <FiEye size={12} /> View Slip
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDownloadPaymentSlip(payment.slip_path || payment.bank_slip_path, `payment-slip-${payment.payment_reference || payment.payment_id}`)}
+                                                            className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-opacity-90 transition-colors"
+                                                        >
+                                                            <FiDownload size={12} /> Download
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                             {/* Documents Section */}
                             <div className="mt-6 space-y-4">
                                 <h4 className="text-md font-semibold text-gray-800 border-b pb-2">Documents & Certificates</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {(() => {
                                         const documents = [
-                                            { key: 'certificate', label: 'Main Certificate', path: selectedSpa.certificate_path },
                                             { key: 'form1_certificate', label: 'Form 1 Certificate', path: selectedSpa.form1_certificate_path },
+                                            { key: 'spa_banner_photos', label: 'Spa Banner Photos', path: selectedSpa.spa_banner_photos_path },
                                             { key: 'nic_front', label: 'NIC Front', path: selectedSpa.nic_front_path },
                                             { key: 'nic_back', label: 'NIC Back', path: selectedSpa.nic_back_path },
                                             { key: 'br_attachment', label: 'Business Registration', path: selectedSpa.br_attachment_path },
@@ -967,28 +1121,7 @@ const ManageSpas = () => {
                                     })()}
                                 </div>
 
-                                {/* Spa Photos Section */}
-                                {selectedSpa.spa_photos_banner && (
-                                    <div className="mt-4">
-                                        <h5 className="text-sm font-semibold text-gray-700 mb-2">Spa Gallery</h5>
-                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                            {selectedSpa.spa_photos_banner.split(',').map((photo, index) => (
-                                                <div key={`photo-${index}`} className="relative">
-                                                    <img
-                                                        src={photo.trim()}
-                                                        alt={`Spa photo ${index + 1}`}
-                                                        className="w-full h-20 object-cover rounded border cursor-pointer hover:opacity-80"
-                                                        onClick={() => window.open(photo.trim(), '_blank')}
-                                                        onError={(e) => {
-                                                            e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgc3Ryb2tlPSIjOTk5IiBzdHJva2Utd2lkdGg9IjIiLz4KPHA+';
-                                                            e.target.alt = 'Image not found';
-                                                        }}
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+
 
                                 {/* No Documents Message */}
                                 {!selectedSpa.certificate_path && !selectedSpa.form1_certificate_path &&

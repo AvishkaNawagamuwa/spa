@@ -797,6 +797,50 @@ router.put('/admin/:id/approve', asyncHandler(async (req, res) => {
  * @desc    Reject therapist (AdminLSA)
  * @access  Private (AdminLSA only)
  */
+/**
+ * @route   PUT /api/therapists/:id/resubmit
+ * @desc    Resubmit rejected therapist application
+ * @access  AdminSPA
+ */
+router.put('/:id/resubmit', therapistUpload, asyncHandler(async (req, res) => {
+    try {
+        const therapistId = req.params.id;
+        const spaId = req.body.spa_id;
+
+        console.log('🔄 Resubmitting therapist:', therapistId, 'for SPA:', spaId);
+
+        // Prepare therapist data
+        const therapistData = {
+            fname: req.body.fname,
+            lname: req.body.lname,
+            birthday: req.body.birthday,
+            nic: req.body.nic,
+            telno: req.body.telno,
+            email: req.body.email,
+            specialty: req.body.specialty
+        };
+
+        const result = await TherapistModel.resubmitTherapist(therapistId, therapistData, req.files, spaId);
+
+        res.status(200).json({
+            success: true,
+            message: 'Therapist application resubmitted successfully',
+            data: {
+                therapist_id: result,
+                status: 'pending'
+            }
+        });
+
+    } catch (error) {
+        console.error('Therapist resubmission error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Resubmission failed',
+            error: error.message
+        });
+    }
+}));
+
 router.put('/admin/:id/reject', asyncHandler(async (req, res) => {
     console.log('🚀 REJECT ROUTE CALLED');
     console.log('📋 Params:', req.params);

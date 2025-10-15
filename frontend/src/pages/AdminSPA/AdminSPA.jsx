@@ -24,6 +24,7 @@ import Dashboard from './Dashboard';
 import PaymentPlans from './PaymentPlans';
 import SpaProfile from './SpaProfile';
 import NotificationHistory from './NotificationHistory';
+import ResubmitApplication from './ResubmitApplication';
 
 // AddTherapist Component with NNF Flow and Enhanced Validation
 const AddTherapist = () => {
@@ -905,6 +906,17 @@ const ViewTherapists = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
+    // Resubmit modal states
+    const [showResubmitModal, setShowResubmitModal] = useState(false);
+    const [resubmitTherapist, setResubmitTherapist] = useState(null);
+    const [resubmitFormData, setResubmitFormData] = useState({
+        fname: '', lname: '', birthday: '', nic: '', telno: '', email: '', specialty: ''
+    });
+    const [resubmitFiles, setResubmitFiles] = useState({
+        nic_attachment: null, medical_certificate: null, spa_certificate: null, therapist_image: null
+    });
+    const [resubmitLoading, setResubmitLoading] = useState(false);
+
     // Get spa_id from logged-in user data  
     const [spaId, setSpaId] = useState(null);
 
@@ -946,8 +958,11 @@ const ViewTherapists = () => {
 
         if (!token || token === 'null' || token === 'undefined') {
             console.error('🔑 Invalid token for therapists request:', token);
+            console.log('❌ No valid token found, redirecting to login');
             setError('Authentication required. Please log in again.');
             setTherapists([]);
+            // Redirect to login
+            window.location.href = '/login';
             return;
         }
 
@@ -1003,7 +1018,7 @@ const ViewTherapists = () => {
     // Load therapists when component mounts or tab changes (with debounce)
     useEffect(() => {
         const token = localStorage.getItem('token');
-        if (token && spaId) {
+        if (token && token !== 'null' && token !== 'undefined' && spaId) {
             console.log(`🔄 Loading therapists for tab: ${activeTab}, spa: ${spaId}`);
 
             // Add small delay to prevent race conditions
@@ -1014,6 +1029,11 @@ const ViewTherapists = () => {
             return () => clearTimeout(timeoutId);
         } else {
             console.log(`⚠️ Skipping therapist load - token: ${!!token}, spaId: ${spaId}`);
+            // If there's no valid token, redirect to login
+            if (!token || token === 'null' || token === 'undefined') {
+                console.log('❌ No valid token in useEffect, redirecting to login');
+                window.location.href = '/login';
+            }
         }
     }, [activeTab, spaId]);
 
@@ -1087,6 +1107,113 @@ const ViewTherapists = () => {
     const viewDetails = (therapist) => {
         setSelectedTherapist(therapist);
         setShowModal(true);
+    };
+
+    const handleResubmit = (therapist) => {
+        // Get the original therapist data from the database
+        const originalTherapist = therapists.find(t => t.id === therapist.id);
+
+        // Pre-fill the form with existing data
+        setResubmitFormData({
+            fname: originalTherapist?.fname || originalTherapist?.first_name || '',
+            lname: originalTherapist?.lname || originalTherapist?.last_name || '',
+            birthday: originalTherapist?.birthday || originalTherapist?.date_of_birth || '',
+            nic: originalTherapist?.nic || originalTherapist?.nic_number || '',
+            telno: originalTherapist?.telno || originalTherapist?.phone || '',
+            email: originalTherapist?.email || '',
+            specialty: originalTherapist?.specialty || originalTherapist?.specialization || ''
+        });
+
+        // Clear files (user needs to re-upload)
+        setResubmitFiles({
+            nic_attachment: null, medical_certificate: null, spa_certificate: null, therapist_image: null
+        });
+
+        setResubmitTherapist(therapist);
+        setShowResubmitModal(true);
+    };
+
+    const handleResubmitInputChange = (e) => {
+        const { name, value } = e.target;
+        setResubmitFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleResubmitFileChange = (e, type) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // File size validation (2MB limit)
+        if (file.size > 2 * 1024 * 1024) {
+            Swal.fire({
+                title: 'File Too Large',
+                text: 'Please select a file under 2MB',
+                icon: 'error',
+                confirmButtonColor: '#0A1428'
+            });
+            return;
+        }
+
+        setResubmitFiles(prev => ({ ...prev, [type]: file }));
+    };
+
+    const submitResubmission = async () => {
+        setResubmitLoading(true);
+        try {
+            const formData = new FormData();
+
+            // Add form fields
+            Object.keys(resubmitFormData).forEach(key => {
+                formData.append(key, resubmitFormData[key]);
+            });
+
+            // Add spa_id
+            formData.append('spa_id', spaId);
+
+            // Add files
+            Object.keys(resubmitFiles).forEach(key => {
+                if (resubmitFiles[key]) {
+                    formData.append(key, resubmitFiles[key]);
+                }
+            });
+
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/therapists/${resubmitTherapist.id}/resubmit`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                Swal.fire({
+                    title: 'Success!',
+                    text: 'Therapist application resubmitted successfully!',
+                    icon: 'success',
+                    confirmButtonColor: '#0A1428'
+                });
+
+                // Close modal and refresh therapists
+                setShowResubmitModal(false);
+                setResubmitTherapist(null);
+                fetchTherapists(activeTab);
+            } else {
+                throw new Error(result.message || 'Resubmission failed');
+            }
+
+        } catch (error) {
+            console.error('Resubmission error:', error);
+            Swal.fire({
+                title: 'Error',
+                text: error.message || 'Failed to resubmit application',
+                icon: 'error',
+                confirmButtonColor: '#0A1428'
+            });
+        } finally {
+            setResubmitLoading(false);
+        }
     };
 
     return (
@@ -1200,6 +1327,14 @@ const ViewTherapists = () => {
                                 >
                                     View Details
                                 </button>
+                                {therapist.dbStatus === 'rejected' && (
+                                    <button
+                                        onClick={() => handleResubmit(therapist)}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors duration-200"
+                                    >
+                                        Resubmit
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -1285,6 +1420,202 @@ const ViewTherapists = () => {
                     </div>
                 </div>
             )}
+
+            {/* Resubmit Therapist Modal */}
+            {showResubmitModal && resubmitTherapist && (
+                <div className="fixed inset-0 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 className="text-2xl font-bold text-gray-800">Resubmit Therapist Application</h3>
+                                <p className="text-gray-600 mt-2">Update the information and resubmit for review</p>
+                            </div>
+                            <button
+                                onClick={() => setShowResubmitModal(false)}
+                                className="text-gray-400 hover:text-gray-600 text-2xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        {/* Show rejection reason */}
+                        {resubmitTherapist.rejectionReason && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                                <h4 className="text-red-800 font-semibold mb-2">Previous Rejection Reason:</h4>
+                                <p className="text-red-700">{resubmitTherapist.rejectionReason}</p>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Personal Information */}
+                            <div className="space-y-4">
+                                <h4 className="text-lg font-semibold text-gray-800 mb-4">Personal Information</h4>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name *</label>
+                                    <input
+                                        type="text"
+                                        name="fname"
+                                        value={resubmitFormData.fname}
+                                        onChange={handleResubmitInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name *</label>
+                                    <input
+                                        type="text"
+                                        name="lname"
+                                        value={resubmitFormData.lname}
+                                        onChange={handleResubmitInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Birthday *</label>
+                                    <input
+                                        type="date"
+                                        name="birthday"
+                                        value={resubmitFormData.birthday}
+                                        onChange={handleResubmitInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">NIC Number *</label>
+                                    <input
+                                        type="text"
+                                        name="nic"
+                                        value={resubmitFormData.nic}
+                                        onChange={handleResubmitInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                                    <input
+                                        type="text"
+                                        name="telno"
+                                        value={resubmitFormData.telno}
+                                        onChange={handleResubmitInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                        placeholder="+94xxxxxxxxx"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                                    <input
+                                        type="email"
+                                        name="email"
+                                        value={resubmitFormData.email}
+                                        onChange={handleResubmitInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Specialty *</label>
+                                    <input
+                                        type="text"
+                                        name="specialty"
+                                        value={resubmitFormData.specialty}
+                                        onChange={handleResubmitInputChange}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Document Uploads */}
+                            <div className="space-y-4">
+                                <h4 className="text-lg font-semibold text-gray-800 mb-4">Documents</h4>
+                                <p className="text-sm text-gray-600 mb-4">Please re-upload all required documents</p>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">NIC Attachment *</label>
+                                    <input
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        onChange={(e) => handleResubmitFileChange(e, 'nic_attachment')}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                    />
+                                    {resubmitFiles.nic_attachment && (
+                                        <p className="text-sm text-green-600 mt-1">✓ {resubmitFiles.nic_attachment.name}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Medical Certificate *</label>
+                                    <input
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        onChange={(e) => handleResubmitFileChange(e, 'medical_certificate')}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                    />
+                                    {resubmitFiles.medical_certificate && (
+                                        <p className="text-sm text-green-600 mt-1">✓ {resubmitFiles.medical_certificate.name}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Spa Certificate *</label>
+                                    <input
+                                        type="file"
+                                        accept=".pdf,.jpg,.jpeg,.png"
+                                        onChange={(e) => handleResubmitFileChange(e, 'spa_certificate')}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                    />
+                                    {resubmitFiles.spa_certificate && (
+                                        <p className="text-sm text-green-600 mt-1">✓ {resubmitFiles.spa_certificate.name}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Therapist Image *</label>
+                                    <input
+                                        type="file"
+                                        accept=".jpg,.jpeg,.png"
+                                        onChange={(e) => handleResubmitFileChange(e, 'therapist_image')}
+                                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0A1428] focus:border-transparent"
+                                    />
+                                    {resubmitFiles.therapist_image && (
+                                        <p className="text-sm text-green-600 mt-1">✓ {resubmitFiles.therapist_image.name}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end space-x-4 mt-8 pt-6 border-t border-gray-200">
+                            <button
+                                onClick={() => setShowResubmitModal(false)}
+                                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                                disabled={resubmitLoading}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={submitResubmission}
+                                disabled={resubmitLoading}
+                                className="px-6 py-2 bg-[#0A1428] text-white rounded-lg hover:bg-[#1a2f4a] disabled:opacity-50"
+                            >
+                                {resubmitLoading ? 'Resubmitting...' : 'Resubmit Application'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -1321,8 +1652,11 @@ const ResignTerminate = () => {
 
         if (!token || token === 'null' || token === 'undefined') {
             console.error('🔑 Invalid token for approved therapists request:', token);
+            console.log('❌ No valid token found, redirecting to login');
             setError('Authentication required. Please log in again.');
             setTherapists([]);
+            // Redirect to login
+            window.location.href = '/login';
             return;
         }
 
@@ -1867,6 +2201,7 @@ const AdminSPA = () => {
         { id: 'add-therapist', label: 'Add Therapist', icon: <FiUserPlus size={20} /> },
         { id: 'view-therapists', label: 'View Therapists', icon: <FiUsers size={20} /> },
         { id: 'resign-terminate', label: 'Manage Staff', icon: <FiFilter size={20} /> },
+        { id: 'resubmit-application', label: 'Resubmit Application', icon: <FiX size={20} /> },
         { id: 'spa-profile', label: 'Spa Profile', icon: <FiSettings size={20} /> },
     ];
 
@@ -1884,6 +2219,8 @@ const AdminSPA = () => {
                 return <ViewTherapists />;
             case 'resign-terminate':
                 return <ResignTerminate />;
+            case 'resubmit-application':
+                return <ResubmitApplication />;
             case 'spa-profile':
                 return <SpaProfile />;
             default:

@@ -195,7 +195,7 @@ router.patch('/spas/:id/approve', async (req, res) => {
         await db.execute(`
             UPDATE spas 
             SET verification_status = 'approved', 
-                status = 'verified',
+                status = 'unverified',
                 approved_by = 1,
                 approved_date = NOW()
             WHERE id = ?
@@ -214,7 +214,7 @@ router.patch('/spas/:id/approve', async (req, res) => {
             actor_id: 1,
             actor_name: 'LSA Admin',
             old_status: 'pending',
-            new_status: 'approved',
+            new_status: 'unverified',
             metadata: { notes }
         });
 
@@ -223,7 +223,7 @@ router.patch('/spas/:id/approve', async (req, res) => {
             recipient_type: 'spa',
             recipient_id: spaId,
             title: 'Spa Registration Approved',
-            message: `Your spa ${spa[0].name} has been approved and is now verified.`,
+            message: `Your spa ${spa[0].name} has been approved and is now unverified.`,
             type: 'success',
             related_entity_type: 'spa',
             related_entity_id: spaId
@@ -581,7 +581,8 @@ router.patch('/spas/:id/blacklist', async (req, res) => {
         await db.execute(`
             UPDATE spas 
             SET blacklist_reason = ?, 
-                blacklisted_at = NOW()
+                blacklisted_at = NOW(),
+                status = 'blacklisted'
             WHERE id = ?
         `, [reason, spaId]);
 

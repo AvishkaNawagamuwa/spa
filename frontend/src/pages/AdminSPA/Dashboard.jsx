@@ -37,6 +37,13 @@ const Dashboard = () => {
             const token = localStorage.getItem('token');
             console.log('🔑 Dashboard: Token from localStorage:', token ? 'Present' : 'Missing');
 
+            // Check for null, undefined, or "null" string
+            if (!token || token === 'null' || token === 'undefined') {
+                console.log('❌ No valid token found, redirecting to login');
+                window.location.href = '/login';
+                return;
+            }
+
             // Fetch dynamic counts from backend
             const response = await axios.get('/api/admin-spa-new/dashboard-stats', {
                 headers: {
@@ -58,6 +65,14 @@ const Dashboard = () => {
     const fetchRecentActivity = async () => {
         try {
             const token = localStorage.getItem('token');
+
+            // Check for null, undefined, or "null" string
+            if (!token || token === 'null' || token === 'undefined') {
+                console.log('❌ No valid token found, redirecting to login');
+                window.location.href = '/login';
+                return;
+            }
+
             // Fetch recent activity for today and yesterday only
             const response = await axios.get('/api/admin-spa-new/recent-activity', {
                 headers: {

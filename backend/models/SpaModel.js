@@ -95,7 +95,7 @@ class SpaModel {
 
             const query = `
                 UPDATE spas 
-                SET status = ?, rejection_reason = ?, verified_at = ?, verified_by = ? 
+                SET status = ?, reject_reason = ?, verified_at = ?, verified_by = ? 
                 WHERE id = ?
             `;
 
@@ -137,38 +137,38 @@ class SpaModel {
         try {
             let query = `
                 SELECT 
-                    id as spa_id,
-                    name as spa_name,
-                    owner_fname,
-                    owner_lname,
-                    CONCAT(COALESCE(owner_fname, ''), ' ', COALESCE(owner_lname, '')) as owner_name,
-                    email,
-                    phone,
-                    address,
-                    reference_number,
-                    status,
-                    verification_status,
-                    payment_status,
-                    annual_payment_status,
-                    payment_method,
-                    next_payment_date,
-                    blacklist_reason,
-                    blacklisted_at,
-                    blacklisted_by,
-                    certificate_path,
-                    form1_certificate_path,
-                    spa_banner_photos_path,
-                    spa_photos_banner,
-                    spa_photos_banner_path,
-                    nic_front_path,
-                    nic_back_path,
-                    br_attachment_path,
-                    other_document_path,
-                    annual_fee_paid,
-                    created_at,
-                    updated_at,
-                    registration_date
-                FROM spas
+                    s.id as spa_id,
+                    s.name as spa_name,
+                    s.owner_fname,
+                    s.owner_lname,
+                    CONCAT(COALESCE(s.owner_fname, ''), ' ', COALESCE(s.owner_lname, '')) as owner_name,
+                    s.email,
+                    s.phone,
+                    s.address,
+                    s.reference_number,
+                    s.status,
+                    s.verification_status,
+                    s.payment_status,
+                    s.annual_payment_status,
+                    s.payment_method,
+                    s.next_payment_date,
+                    s.blacklist_reason,
+                    s.blacklisted_at,
+                    s.blacklisted_by,
+                    s.certificate_path,
+                    s.form1_certificate_path,
+                    s.spa_banner_photos_path,
+                    s.spa_photos_banner,
+                    s.spa_photos_banner_path,
+                    s.nic_front_path,
+                    s.nic_back_path,
+                    s.br_attachment_path,
+                    s.other_document_path,
+                    s.annual_fee_paid,
+                    s.created_at,
+                    s.updated_at,
+                    s.registration_date
+                FROM spas s
             `;
 
             const conditions = [];
@@ -271,6 +271,121 @@ class SpaModel {
         }
     }
 
+    // Get detailed spa information with payment history
+    static async getSpaWithPaymentDetails(spaId) {
+        try {
+            // Get spa details
+            const spaQuery = `
+                SELECT 
+                    s.id as spa_id,
+                    s.name as spa_name,
+                    s.owner_fname,
+                    s.owner_lname,
+                    CONCAT(COALESCE(s.owner_fname, ''), ' ', COALESCE(s.owner_lname, '')) as owner_name,
+                    s.email,
+                    s.phone,
+                    s.address,
+                    s.reference_number,
+                    s.status,
+                    s.verification_status,
+                    s.payment_status,
+                    s.annual_payment_status,
+                    s.payment_method,
+                    s.next_payment_date,
+                    s.blacklist_reason,
+                    s.blacklisted_at,
+                    s.blacklisted_by,
+                    s.reject_reason,
+                    s.certificate_path,
+                    s.form1_certificate_path,
+                    s.spa_banner_photos_path,
+                    s.spa_photos_banner,
+                    s.spa_photos_banner_path,
+                    s.nic_front_path,
+                    s.nic_back_path,
+                    s.br_attachment_path,
+                    s.other_document_path,
+                    s.annual_fee_paid,
+                    s.created_at,
+                    s.updated_at,
+                    s.registration_date,
+                    s.approved_date,
+                    s.approved_by
+                FROM spas s
+                WHERE s.id = ?
+            `;
+
+            const [spaRows] = await db.execute(spaQuery, [spaId]);
+
+            if (spaRows.length === 0) {
+                return null;
+            }
+
+            const spa = spaRows[0];
+
+            // Get payment history from payments table
+            const paymentQuery = `
+                SELECT 
+                    p.id as payment_id,
+                    p.amount,
+                    p.payment_type,
+                    p.payment_method,
+                    p.status as payment_status,
+                    p.slip_path,
+                    p.bank_slip_path,
+                    p.reference_number as payment_reference,
+                    p.transaction_id,
+                    p.payment_plan,
+                    p.bank_transfer_approved,
+                    p.approval_date,
+                    p.approved_by,
+                    p.approved_at,
+                    p.rejection_reason,
+                    p.payhere_order_id,
+                    p.payhere_payment_id,
+                    p.created_at as payment_created_at,
+                    p.updated_at as payment_updated_at
+                FROM payments p
+                WHERE p.spa_id = ?
+                ORDER BY p.created_at DESC
+            `;
+
+            const [paymentRows] = await db.execute(paymentQuery, [spaId]);
+
+            // Process JSON fields to extract file paths properly
+            const parseJsonField = (field) => {
+                if (!field) return null;
+                try {
+                    const parsed = JSON.parse(field);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        return parsed[0]; // Return first file path
+                    }
+                    return field; // Return as is if not JSON array
+                } catch (e) {
+                    return field; // Return original value if not valid JSON
+                }
+            };
+
+            const processedSpa = {
+                ...spa,
+                // Parse document paths from JSON arrays
+                form1_certificate_path: parseJsonField(spa.form1_certificate_path),
+                nic_front_path: parseJsonField(spa.nic_front_path),
+                nic_back_path: parseJsonField(spa.nic_back_path),
+                br_attachment_path: parseJsonField(spa.br_attachment_path),
+                other_document_path: parseJsonField(spa.other_document_path),
+                spa_banner_photos_path: parseJsonField(spa.spa_banner_photos_path),
+                spa_photos_banner: spa.spa_banner_photos_path ? parseJsonField(spa.spa_banner_photos_path) : spa.spa_photos_banner,
+                payments: paymentRows
+            };
+
+            return processedSpa;
+        } catch (error) {
+            console.error('Error in getSpaWithPaymentDetails:', error);
+            throw error;
+        }
+    }
+
     // Helper method to log activities
     static async logActivity(connection, entityType, entityId, action, description, actorType, actorId, actorName) {
         const query = `
@@ -282,11 +397,45 @@ class SpaModel {
 
     // Helper method to create notifications
     static async createNotification(connection, recipientType, recipientId, title, message, type = 'info', relatedEntityType = null, relatedEntityId = null) {
+        // Map recipient types to match database enum values
+        const recipientTypeMap = {
+            'lsa': 'admin_lsa',
+            'spa': 'admin_spa',
+            'admin_lsa': 'admin_lsa',
+            'admin_spa': 'admin_spa',
+            'government_officer': 'government_officer',
+            'all': 'all'
+        };
+
+        // Map notification types for spa-related notifications
+        const notificationTypeMap = {
+            'info': 'spa_registration',
+            'success': 'spa_registration',
+            'warning': 'system_alert',
+            'error': 'system_alert'
+        };
+
+        const mappedRecipientType = recipientTypeMap[recipientType] || 'admin_lsa';
+        const mappedNotificationType = notificationTypeMap[type] || 'spa_registration';
+
+        // Debug logging
+        console.log('🔍 Creating notification with values:', {
+            recipientType,
+            mappedRecipientType,
+            recipientId,
+            title,
+            message,
+            type,
+            mappedNotificationType,
+            relatedEntityType,
+            relatedEntityId
+        });
+
         const query = `
-            INSERT INTO system_notifications (recipient_type, recipient_id, title, message, type, related_entity_type, related_entity_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO system_notifications (recipient_type, recipient_id, title, message, type, notification_type, related_entity_type, related_entity_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
-        await connection.execute(query, [recipientType, recipientId, title, message, type, relatedEntityType, relatedEntityId]);
+        await connection.execute(query, [mappedRecipientType, recipientId, title, message, type, mappedNotificationType, relatedEntityType, relatedEntityId]);
     }
 
     // Get admin statistics for dashboard
@@ -514,6 +663,67 @@ class SpaModel {
         } catch (error) {
             console.error('Error getting all spas:', error);
             return { spas: [] };
+        }
+    }
+
+    // Resubmit rejected spa application with updated data
+    static async resubmitSpa(spaId, updateData) {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            // Build update query dynamically based on provided fields
+            const updateFields = [];
+            const updateValues = [];
+
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] !== undefined && updateData[key] !== null) {
+                    updateFields.push(`${key} = ?`);
+                    updateValues.push(updateData[key]);
+                }
+            });
+
+            if (updateFields.length === 0) {
+                throw new Error('No valid update data provided');
+            }
+
+            const query = `
+                UPDATE spas 
+                SET ${updateFields.join(', ')} 
+                WHERE id = ?
+            `;
+
+            updateValues.push(spaId);
+            await connection.execute(query, updateValues);
+
+            // Get updated spa info for activity log
+            const spa = await this.getSpaById(spaId);
+
+            // Log the resubmission activity
+            await this.logActivity(connection, 'spa', spaId, 'resubmitted',
+                `Spa application resubmitted: ${spa.name}`, 'spa', spaId, `${spa.owner_fname} ${spa.owner_lname}`);
+
+            // Create notification for LSA about resubmission
+            await this.createNotification(connection, 'lsa', null,
+                'Spa Application Resubmitted',
+                `${spa.name} has resubmitted their corrected application for review.`,
+                'info', 'spa', spaId
+            );
+
+            // Create notification for SPA confirming resubmission
+            await this.createNotification(connection, 'spa', spaId,
+                'Application Resubmitted Successfully',
+                'Your corrected application has been resubmitted and is now pending review by AdminLSA.',
+                'success', 'spa', spaId
+            );
+
+            await connection.commit();
+            return { spa_id: spaId, status: 'pending' };
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
         }
     }
 }

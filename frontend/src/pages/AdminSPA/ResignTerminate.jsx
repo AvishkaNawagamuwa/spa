@@ -65,9 +65,13 @@ const ResignTerminate = () => {
         const token = localStorage.getItem('token');
         const spaId = getSpaId();
 
-        if (!token) {
+        // Check for null, undefined, or "null" string
+        if (!token || token === 'null' || token === 'undefined') {
+            console.log('❌ No valid token found, redirecting to login');
             setError('Authentication required. Please log in again.');
             setLoading(false);
+            // Redirect to login
+            window.location.href = '/login';
             return;
         }
 

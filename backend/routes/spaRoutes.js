@@ -157,6 +157,88 @@ router.put('/profile/:spaId', spaUpload, asyncHandler(async (req, res) => {
     }
 }));
 
+/**
+ * @route   PUT /api/spa/resubmit/:spaId
+ * @desc    Resubmit rejected spa application with corrections
+ * @access  Private
+ */
+router.put('/resubmit/:spaId', spaUpload, asyncHandler(async (req, res) => {
+    try {
+        const { spaId } = req.params;
+
+        // Check if spa exists and is rejected
+        const existingSpa = await SpaModel.getSpaById(spaId);
+        if (!existingSpa) {
+            return res.status(404).json({
+                success: false,
+                message: 'Spa not found'
+            });
+        }
+
+        if (existingSpa.status !== 'rejected') {
+            return res.status(400).json({
+                success: false,
+                message: 'Only rejected applications can be resubmitted'
+            });
+        }
+
+        const updateData = {
+            // Personal Information (using current table column names)
+            owner_fname: req.body.firstName,
+            owner_lname: req.body.lastName,
+            email: req.body.email,
+            phone: req.body.telephone || req.body.cellphone,
+
+            // Spa Information (simplified to match current table)
+            name: req.body.spaName,
+            address: `${req.body.spaAddressLine1}, ${req.body.spaAddressLine2 || ''}, ${req.body.spaProvince}, ${req.body.spaPostalCode}`.replace(', ,', ','),
+
+            // Reset status to pending
+            status: 'pending',
+            reject_reason: null,
+            updated_at: new Date()
+        };
+
+        // Handle file uploads if provided (using actual table column names)
+        if (req.files) {
+            if (req.files.nicFront && req.files.nicFront[0]) {
+                updateData.nic_front_path = `/uploads/spas/${req.files.nicFront[0].filename}`;
+            }
+            if (req.files.nicBack && req.files.nicBack[0]) {
+                updateData.nic_back_path = `/uploads/spas/${req.files.nicBack[0].filename}`;
+            }
+            if (req.files.brAttachment && req.files.brAttachment[0]) {
+                updateData.br_attachment_path = `/uploads/spas/${req.files.brAttachment[0].filename}`;
+            }
+            if (req.files.otherDocument && req.files.otherDocument[0]) {
+                updateData.other_document_path = `/uploads/spas/${req.files.otherDocument[0].filename}`;
+            }
+            if (req.files.form1Certificate && req.files.form1Certificate[0]) {
+                updateData.form1_certificate_path = `/uploads/spas/${req.files.form1Certificate[0].filename}`;
+            }
+            if (req.files.spaPhotosBanner && req.files.spaPhotosBanner[0]) {
+                updateData.spa_photos_banner_path = `/uploads/spas/${req.files.spaPhotosBanner[0].filename}`;
+            }
+        }
+
+        const result = await SpaModel.resubmitSpa(spaId, updateData);
+
+        res.json({
+            success: true,
+            message: 'Application resubmitted successfully for review',
+            data: result
+        });
+
+    } catch (error) {
+        console.error('Resubmit spa application error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to resubmit application',
+            error: error.message
+        });
+    }
+}));
+
 // ==================== SPA DASHBOARD ROUTES ====================
 
 /**

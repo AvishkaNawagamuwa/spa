@@ -6,6 +6,41 @@ const db = require('../config/database');
 const multer = require('multer');
 const path = require('path');
 const jwt = require('jsonwebtoken');
+const fs = require('fs');
+
+// Configure multer for payment transfer slip uploads
+const uploadDir = path.join(__dirname, '../../uploads/payment-slips');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'transfer-slip-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB limit
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|pdf/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error('Only images (JPEG, JPG, PNG) and PDF files are allowed'));
+        }
+    }
+});
 
 // Middleware to verify AdminSPA authentication
 const verifyAdminSPA = async (req, res, next) => {
@@ -41,18 +76,20 @@ router.get('/payment-status', verifyAdminSPA, async (req, res) => {
             return res.status(400).json({ success: false, error: 'No spa associated with this account' });
         }
 
+        // Get spa information and latest payment details
         const [spa] = await db.execute(`
       SELECT 
         s.*,
-        p.status as payment_status,
-        p.next_payment_date,
+        p.payment_status,
+        p.payment_plan,
         p.payment_method,
+        p.created_at as payment_date,
         CASE 
           WHEN s.next_payment_date < CURDATE() AND s.payment_status != 'paid' THEN true
           ELSE false
         END as is_overdue
       FROM spas s
-      LEFT JOIN payments p ON s.id = p.spa_id AND p.payment_type = 'annual'
+      LEFT JOIN payments p ON s.id = p.spa_id 
       WHERE s.id = ?
       ORDER BY p.created_at DESC
       LIMIT 1
@@ -64,6 +101,33 @@ router.get('/payment-status', verifyAdminSPA, async (req, res) => {
 
         const spaData = spa[0];
 
+        // Check if there's an active payment that should lock the plan
+        // A payment locks the plan only if:
+        // 1. Payment exists and is completed or pending approval
+        // 2. Payment was made recently (within last 30 days) OR there's a valid next_payment_date
+        let hasActivePayment = false;
+
+        if (spaData.payment_status && (spaData.payment_status === 'completed' || spaData.payment_status === 'pending_approval')) {
+
+            // If there's a valid next_payment_date, use it to determine if subscription is active
+            if (spaData.next_payment_date) {
+                const nextPaymentDate = new Date(spaData.next_payment_date);
+                const currentDate = new Date();
+                hasActivePayment = currentDate < nextPaymentDate;
+            } else {
+                // If no next_payment_date, check if payment was made recently (within last 30 days)
+                // This handles cases where the payment was just made but next_payment_date wasn't set
+                const paymentDate = new Date(spaData.payment_date);
+                const currentDate = new Date();
+                const daysDifference = (currentDate - paymentDate) / (1000 * 60 * 60 * 24);
+
+                // Lock plan if payment was made within last 30 days
+                hasActivePayment = daysDifference <= 30;
+            }
+        }
+
+
+
         res.json({
             success: true,
             data: {
@@ -72,10 +136,13 @@ router.get('/payment-status', verifyAdminSPA, async (req, res) => {
                 reference_number: spaData.reference_number,
                 status: spaData.status,
                 payment_status: spaData.payment_status,
+                currentPlan: spaData.payment_plan,
+                hasActivePayment: hasActivePayment,
                 next_payment_date: spaData.next_payment_date,
                 is_overdue: spaData.is_overdue,
                 access_restricted: spaData.is_overdue,
-                payment_method: spaData.payment_method
+                payment_method: spaData.payment_method,
+                payment_date: spaData.payment_date
             }
         });
 
@@ -175,26 +242,31 @@ router.get('/payment-plans', verifyAdminSPA, async (req, res) => {
     }
 });
 
-// Process payment (enhanced with card and bank transfer)
-router.post('/process-payment', verifyAdminSPA, async (req, res) => {
+// Process card payment (JSON)
+router.post('/process-card-payment', verifyAdminSPA, async (req, res) => {
     try {
-        const { plan_id, payment_method, card_details, bank_details } = req.body;
+        console.log('💳 Card payment request received');
+        console.log('📋 Request body:', req.body);
+
+        const { plan_id, payment_method, card_details } = req.body;
 
         if (!req.user.spa_id) {
             return res.status(400).json({ success: false, error: 'No spa associated with this account' });
         }
 
-        // Validate payment method
-        if (!['card', 'bank_transfer'].includes(payment_method)) {
-            return res.status(400).json({ success: false, error: 'Invalid payment method' });
+        if (!plan_id || payment_method !== 'card') {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid card payment request'
+            });
         }
 
-        // Get plan details
+        // Get plan details - using only allowed payment_type enum values
         const planPrices = {
-            'monthly': { amount: 5000, duration_months: 1, type: 'monthly' },
-            'quarterly': { amount: 14000, duration_months: 3, type: 'quarterly' },
-            'half-yearly': { amount: 25000, duration_months: 6, type: 'annual' },
-            'annual': { amount: 45000, duration_months: 12, type: 'annual' }
+            'monthly': { amount: 5000, duration_months: 1, type: 'monthly', plan: 'Monthly' },
+            'quarterly': { amount: 14000, duration_months: 3, type: 'annual', plan: 'Quarterly' },
+            'half-yearly': { amount: 25000, duration_months: 6, type: 'annual', plan: 'Half-Yearly' },
+            'annual': { amount: 45000, duration_months: 12, type: 'annual', plan: 'Annual' }
         };
 
         const plan = planPrices[plan_id];
@@ -209,83 +281,49 @@ router.post('/process-payment', verifyAdminSPA, async (req, res) => {
 
             // Create payment record
             const [paymentResult] = await connection.execute(`
-        INSERT INTO payments (
-          spa_id, payment_type, payment_method, amount, status,
-          bank_transfer_approved
-        ) VALUES (?, ?, ?, ?, ?, ?)
-      `, [
+                INSERT INTO payments (
+                    spa_id, reference_number, payment_type, payment_plan, payment_method, 
+                    amount, payment_status, bank_transfer_approved
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
                 req.user.spa_id,
+                `CARD_${Date.now()}`,
                 plan.type,
+                plan.plan,
                 payment_method,
                 plan.amount,
-                payment_method === 'card' ? 'completed' : 'pending',
-                payment_method === 'card' ? true : false
+                'completed',
+                true
             ]);
 
             const paymentId = paymentResult.insertId;
 
-            if (payment_method === 'card') {
-                // For card payments, update spa payment status immediately
-                const nextPaymentDate = new Date();
-                nextPaymentDate.setMonth(nextPaymentDate.getMonth() + plan.duration_months);
+            // For card payments, update spa payment status immediately
+            const nextPaymentDate = new Date();
+            nextPaymentDate.setMonth(nextPaymentDate.getMonth() + plan.duration_months);
 
-                await connection.execute(`
-          UPDATE spas SET 
-            payment_status = 'paid',
-            next_payment_date = ?,
-            annual_fee_paid = true
-          WHERE id = ?
-        `, [nextPaymentDate, req.user.spa_id]);
+            await connection.execute(`
+                UPDATE spas SET 
+                    payment_status = 'paid',
+                    next_payment_date = ?,
+                    annual_fee_paid = true
+                WHERE id = ?
+            `, [nextPaymentDate, req.user.spa_id]);
 
-                await connection.commit();
+            await connection.commit();
 
-                res.json({
-                    success: true,
-                    message: 'Payment processed successfully!',
-                    data: {
-                        payment_id: paymentId,
-                        status: 'completed',
-                        amount: plan.amount,
-                        next_payment_date: nextPaymentDate,
-                        access_restored: true
-                    }
-                });
-
-            } else {
-                // For bank transfer, create pending payment
-                await connection.execute(`
-          UPDATE payments SET 
-            bank_slip_path = ?,
-            created_at = NOW()
-          WHERE id = ?
-        `, [bank_details?.reference || null, paymentId]);
-
-                await connection.commit();
-
-                res.json({
-                    success: true,
-                    message: 'Bank transfer payment submitted. Awaiting LSA approval.',
-                    data: {
-                        payment_id: paymentId,
-                        status: 'pending_approval',
-                        amount: plan.amount,
-                        bank_details: {
-                            bank_name: 'Bank of Ceylon',
-                            account_name: 'Lanka Spa Association',
-                            account_number: '123-456-789-001',
-                            branch: 'Colombo Main Branch',
-                            reference: `SPA${req.user.spa_id}_${paymentId}`
-                        },
-                        instructions: [
-                            'Transfer the exact amount to the provided bank account',
-                            'Use the reference number in the transfer description',
-                            'Keep your bank slip for records',
-                            'Payment verification usually takes 1-2 business days',
-                            'You will receive email confirmation once approved'
-                        ]
-                    }
-                });
-            }
+            res.json({
+                success: true,
+                message: `${plan.plan} plan payment processed successfully! Your payment plan is now fixed for the complete year.`,
+                data: {
+                    payment_id: paymentId,
+                    status: 'completed',
+                    amount: plan.amount,
+                    payment_plan: plan.plan,
+                    next_payment_date: nextPaymentDate,
+                    access_restored: true
+                }
+            });
 
         } catch (error) {
             await connection.rollback();
@@ -295,8 +333,130 @@ router.post('/process-payment', verifyAdminSPA, async (req, res) => {
         }
 
     } catch (error) {
-        console.error('Error processing payment:', error);
-        res.status(500).json({ success: false, error: 'Failed to process payment' });
+        console.error('Error processing card payment:', error);
+        res.status(500).json({ success: false, error: 'Failed to process card payment' });
+    }
+});
+
+// Process bank transfer payment (Form Data)
+router.post('/process-bank-transfer', verifyAdminSPA, upload.single('transfer_proof'), async (req, res) => {
+    try {
+        console.log('🏦 Bank transfer request received');
+        console.log('📋 Request body:', req.body);
+        console.log('📁 File uploaded:', req.file ? req.file.filename : 'No file');
+
+        const { plan_id, payment_method } = req.body;
+
+        if (!req.user.spa_id) {
+            return res.status(400).json({ success: false, error: 'No spa associated with this account' });
+        }
+
+        if (!plan_id || payment_method !== 'bank_transfer') {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid bank transfer request'
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                error: 'Bank transfer slip file is required'
+            });
+        }
+
+        // Get plan details - using only allowed payment_type enum values  
+        const planPrices = {
+            'monthly': { amount: 5000, duration_months: 1, type: 'monthly', plan: 'Monthly' },
+            'quarterly': { amount: 14000, duration_months: 3, type: 'annual', plan: 'Quarterly' },
+            'half-yearly': { amount: 25000, duration_months: 6, type: 'annual', plan: 'Half-Yearly' },
+            'annual': { amount: 45000, duration_months: 12, type: 'annual', plan: 'Annual' }
+        };
+
+        const plan = planPrices[plan_id];
+        if (!plan) {
+            return res.status(400).json({ success: false, error: 'Invalid plan selected' });
+        }
+
+        const connection = await db.getConnection();
+
+        try {
+            await connection.beginTransaction();
+
+            // Create payment record with file
+            let transferSlipPath = null;
+            if (req.file) {
+                transferSlipPath = `uploads/payment-slips/${req.file.filename}`;
+            }
+
+            const [paymentResult] = await connection.execute(`
+                INSERT INTO payments (
+                    spa_id, reference_number, payment_type, payment_plan, payment_method, 
+                    amount, payment_status, bank_slip_path, bank_transfer_approved
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                req.user.spa_id,
+                `BANK_${Date.now()}`,
+                plan.type,
+                plan.plan,
+                payment_method,
+                plan.amount,
+                'pending_approval',
+                transferSlipPath,
+                false
+            ]);
+
+            const paymentId = paymentResult.insertId;
+
+            // For bank transfer payments, also set the next_payment_date to lock the plan
+            // even though it's pending approval
+            const nextPaymentDate = new Date();
+            nextPaymentDate.setMonth(nextPaymentDate.getMonth() + plan.duration_months);
+
+            await connection.execute(`
+                UPDATE spas SET 
+                    next_payment_date = ?
+                WHERE id = ?
+            `, [nextPaymentDate.toISOString().split('T')[0], req.user.spa_id]);
+
+            await connection.commit();
+
+            res.json({
+                success: true,
+                message: `Bank transfer payment submitted for ${plan.plan} plan. Your payment plan is now fixed for the complete year. Awaiting LSA approval.`,
+                data: {
+                    payment_id: paymentId,
+                    status: 'pending_approval',
+                    amount: plan.amount,
+                    payment_plan: plan.plan,
+                    transfer_slip_uploaded: !!transferSlipPath,
+                    bank_details: {
+                        bank_name: 'Bank of Ceylon',
+                        account_name: 'Lanka Spa Association',
+                        account_number: '123-456-789-001',
+                        branch: 'Colombo Main Branch',
+                        reference: `SPA${req.user.spa_id}_${paymentId}`
+                    },
+                    instructions: [
+                        'Your bank transfer slip has been uploaded successfully',
+                        'Payment plan is fixed for the complete year',
+                        'Payment verification usually takes 1-2 business days',
+                        'You will receive email confirmation once approved',
+                        'Your spa access will be activated upon approval'
+                    ]
+                }
+            });
+
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+
+    } catch (error) {
+        console.error('Error processing bank transfer:', error);
+        res.status(500).json({ success: false, error: 'Failed to process bank transfer' });
     }
 });
 

@@ -304,6 +304,133 @@ class TherapistModel {
         }
     }
 
+    // Resubmit rejected therapist (AdminSPA)
+    static async resubmitTherapist(therapistId, therapistData, files = {}, spaId) {
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            const {
+                fname, lname, birthday, nic, telno, email, specialty
+            } = therapistData;
+
+            // Process file paths - only update if new files are provided
+            let updateFields = [];
+            let updateValues = [];
+
+            // Basic information updates - map to correct database column names
+            if (fname) {
+                updateFields.push('first_name = ?');
+                updateValues.push(fname);
+            }
+            if (lname) {
+                updateFields.push('last_name = ?');
+                updateValues.push(lname);
+            }
+            if (birthday) {
+                updateFields.push('date_of_birth = ?');
+                // Convert date to proper format (YYYY-MM-DD) if it's an ISO string
+                const dateValue = birthday.includes('T') ? birthday.split('T')[0] : birthday;
+                updateValues.push(dateValue);
+            }
+            if (nic) {
+                updateFields.push('nic_number = ?');
+                updateValues.push(nic);
+            }
+            if (telno) {
+                updateFields.push('phone = ?');
+                updateValues.push(telno);
+            }
+            if (email) {
+                updateFields.push('email = ?');
+                updateValues.push(email);
+            }
+            if (specialty) {
+                updateFields.push('specialization = ?');
+                updateValues.push(specialty);
+            }
+
+            // File updates - only update if new files are provided
+            if (files.nic_attachment) {
+                updateFields.push('nic_attachment = ?');
+                updateValues.push(`/uploads/therapists/${files.nic_attachment[0].filename}`);
+            }
+            if (files.medical_certificate) {
+                updateFields.push('medical_certificate = ?');
+                updateValues.push(`/uploads/therapists/${files.medical_certificate[0].filename}`);
+            }
+            if (files.spa_certificate) {
+                updateFields.push('spa_center_certificate = ?');
+                updateValues.push(`/uploads/therapists/${files.spa_certificate[0].filename}`);
+            }
+            if (files.therapist_image) {
+                updateFields.push('therapist_image = ?');
+                updateValues.push(`/uploads/therapists/${files.therapist_image[0].filename}`);
+            }
+
+            // Always update status to pending and clear reject reason
+            updateFields.push('status = ?');
+            updateValues.push('pending');
+            updateFields.push('reject_reason = ?');
+            updateValues.push(null);
+
+            updateValues.push(therapistId);
+            updateValues.push(spaId);
+
+            // Update therapist
+            const updateQuery = `
+                UPDATE therapists 
+                SET ${updateFields.join(', ')}
+                WHERE id = ? AND spa_id = ? AND status = 'rejected'
+            `;
+
+            const [result] = await connection.execute(updateQuery, updateValues);
+
+            if (result.affectedRows === 0) {
+                throw new Error('Therapist not found or cannot be resubmitted');
+            }
+
+            // Create new request for AdminLSA (check if therapist_requests table exists)
+            try {
+                const requestQuery = `
+                    INSERT INTO therapist_requests (therapist_id, spa_id, request_type, request_status, spa_notes)
+                    VALUES (?, ?, 'resubmit', 'pending', ?)
+                `;
+                await connection.execute(requestQuery, [therapistId, spaId, `Resubmitted therapist application for ${fname} ${lname}`]);
+            } catch (requestError) {
+                // If therapist_requests table doesn't exist, continue without it
+                console.log('Note: therapist_requests table not available:', requestError.message);
+            }
+
+            // Log activity (check if this method exists)
+            try {
+                await this.logActivity(connection, 'therapist', therapistId, 'resubmitted',
+                    `Therapist resubmitted: ${fname} ${lname}`, 'spa', spaId, `${fname} ${lname}`);
+            } catch (logError) {
+                console.log('Note: Activity logging not available:', logError.message);
+            }
+
+            // Create notification for LSA (check if this method exists)
+            try {
+                await this.createNotification(connection, 'admin_lsa', null,
+                    'Therapist Resubmission',
+                    `Resubmitted therapist application from spa: ${fname} ${lname}`,
+                    'therapist_application', 'therapist', therapistId
+                );
+            } catch (notificationError) {
+                console.log('Note: Notification creation not available:', notificationError.message);
+            }
+
+            await connection.commit();
+            return therapistId;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+    }
+
     // Search therapists
     static async searchTherapists(searchTerm, spaId = null) {
         let query = `

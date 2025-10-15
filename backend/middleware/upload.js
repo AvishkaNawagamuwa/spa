@@ -105,7 +105,15 @@ const spaUpload = upload.fields([
   { name: 'tax_registration', maxCount: 1 },
   { name: 'other_doc', maxCount: 1 },
   { name: 'facility_photos', maxCount: 10 },
-  { name: 'professional_certifications', maxCount: 5 }
+  { name: 'professional_certifications', maxCount: 5 },
+  // For resubmission (camelCase field names from frontend)
+  { name: 'nicFront', maxCount: 1 },
+  { name: 'nicBack', maxCount: 1 },
+  { name: 'brAttachment', maxCount: 1 },
+  { name: 'taxRegistration', maxCount: 1 },
+  { name: 'otherDocument', maxCount: 1 },
+  { name: 'facilityPhotos', maxCount: 10 },
+  { name: 'professionalCertifications', maxCount: 5 }
 ]);
 
 const therapistUpload = upload.fields([

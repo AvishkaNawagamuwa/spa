@@ -10,6 +10,7 @@ const PaymentPlans = () => {
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [bankTransferProof, setBankTransferProof] = useState(null);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
+    const [isPlanFixed, setIsPlanFixed] = useState(false); // Track if plan is fixed for the year
 
     // Enhanced payment form state
     const [cardDetails, setCardDetails] = useState({
@@ -36,9 +37,44 @@ const PaymentPlans = () => {
 
     useEffect(() => {
         fetchAvailablePlans();
+        checkExistingPayments();
     }, []);
 
-    const fetchAvailablePlans = async () => {
+    const checkExistingPayments = async () => {
+        try {
+
+            const response = await axios.get('http://localhost:3001/api/admin-spa-enhanced/payment-status', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+
+
+
+            // Only fix the plan if there's an active payment (completed or pending approval)
+            // This means they've already made their payment choice for this year
+            if (response.data.success && response.data.data.hasActivePayment) {
+                setIsPlanFixed(true);
+                // Set the active plan based on existing payment
+                if (response.data.data.currentPlan) {
+                    const planMapping = {
+                        'Monthly': 'monthly',
+                        'Quarterly': 'quarterly',
+                        'Half-Yearly': 'half-yearly',
+                        'Annual': 'annual'
+                    };
+                    setSelectedPlan(planMapping[response.data.data.currentPlan] || 'annual');
+                }
+
+            } else {
+                // No active payment - user can freely select any plan
+                setIsPlanFixed(false);
+
+            }
+        } catch (error) {
+            console.error('Error checking existing payments:', error);
+            // If there's an error checking, allow plan selection (safer default)
+            setIsPlanFixed(false);
+        }
+    }; const fetchAvailablePlans = async () => {
         try {
             const response = await axios.get('/api/admin-spa-enhanced/payment-plans', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -122,6 +158,17 @@ const PaymentPlans = () => {
     ];
 
     const handleSelectPlan = (planId) => {
+        // If plan is fixed (after first successful payment), prevent changes
+        if (isPlanFixed) {
+            Swal.fire({
+                title: 'Plan Fixed for the Year',
+                text: 'Your payment plan is fixed for the complete year according to your spa subscription. You cannot change it until the next renewal period.',
+                icon: 'info',
+                confirmButtonColor: '#001F3F'
+            });
+            return;
+        }
+        // Allow free selection before first payment
         setSelectedPlan(planId);
     };
 
@@ -157,6 +204,9 @@ const PaymentPlans = () => {
                     confirmButtonColor: '#001F3F'
                 });
                 setShowPaymentModal(false);
+
+                // Refresh payment status to lock the plan
+                await checkExistingPayments();
             }
         } catch (error) {
             console.error('Payment error:', error);
@@ -207,6 +257,9 @@ const PaymentPlans = () => {
                 });
                 setShowPaymentModal(false);
                 setBankTransferProof(null);
+
+                // Refresh payment status to lock the plan
+                await checkExistingPayments();
             }
         } catch (error) {
             console.error('Bank transfer error:', error);
@@ -319,22 +372,26 @@ const PaymentPlans = () => {
 
             // Enhanced PayHere integration with validation
             const paymentData = {
-                type: paymentType,
+                plan_id: planData.id,
+                payment_method: 'card',
                 amount: planData.price,
-                method: 'card',
-                cardDetails: {
+                card_details: {
                     ...cardDetails,
                     cardNumber: cardDetails.cardNumber.replace(/\s/g, '') // Remove spaces
-                },
-                planId: planData.id
+                }
             };
 
-            const response = await axios.post('/api/admin-spa-new/process-payment', paymentData);
+            const response = await axios.post('http://localhost:3001/api/admin-spa-enhanced/process-card-payment', paymentData, {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
 
             if (response.data.success) {
+                // Fix the selected plan for the year after successful payment (for any plan)
+                setIsPlanFixed(true);
+
                 Swal.fire({
                     title: 'Payment Successful!',
-                    text: 'Your payment has been processed successfully.',
+                    text: `Your ${planData.name} plan payment has been processed successfully. Your plan is now fixed for the complete year.`,
                     icon: 'success',
                     confirmButtonColor: '#001F3F'
                 }).then(() => {
@@ -374,22 +431,25 @@ const PaymentPlans = () => {
 
             // Create FormData for file upload
             const formData = new FormData();
-            formData.append('type', paymentType);
+            formData.append('plan_id', planData.id);
+            formData.append('payment_method', 'bank_transfer');
             formData.append('amount', planData.price);
-            formData.append('method', 'bank_transfer');
-            formData.append('slip', bankSlipFile);
-            formData.append('planId', planData.id);
+            formData.append('transfer_proof', bankSlipFile);
 
-            const response = await axios.post('/api/admin-spa-new/process-payment', formData, {
+            const response = await axios.post('http://localhost:3001/api/admin-spa-enhanced/process-bank-transfer', formData, {
                 headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`,
                     'Content-Type': 'multipart/form-data'
                 }
             });
 
             if (response.data.success) {
+                // Fix the selected plan for the year after successful payment submission (for any plan)
+                setIsPlanFixed(true);
+
                 Swal.fire({
                     title: 'Upload Successful!',
-                    text: 'Your bank transfer slip has been uploaded. Payment will be verified by LSA Admin.',
+                    text: `Your ${planData.name} plan bank transfer slip has been uploaded successfully. Your payment plan is now fixed for the complete year. Payment will be verified by LSA Admin.`,
                     icon: 'success',
                     confirmButtonColor: '#001F3F'
                 }).then(() => {
@@ -431,6 +491,30 @@ const PaymentPlans = () => {
                 <p className="text-gray-600 max-w-2xl mx-auto">
                     Unlock the full potential of your spa management system. Choose the plan that fits your business needs.
                 </p>
+
+
+                {/* Plan Status Notification */}
+                {isPlanFixed ? (
+                    <div className="mt-4 mx-auto max-w-lg bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center justify-center">
+                            <FiCheck className="text-green-600 mr-2" size={20} />
+                            <div className="text-green-800">
+                                <p className="font-semibold">Payment Plan Fixed for the Year</p>
+                                <p className="text-sm">Your {plans.find(p => p.id === selectedPlan)?.name} plan is locked for the complete year according to your spa subscription.</p>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="mt-4 mx-auto max-w-lg bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center justify-center">
+                            <FiCalendar className="text-blue-600 mr-2" size={20} />
+                            <div className="text-blue-800">
+                                <p className="font-semibold">Select Your Payment Plan</p>
+                                <p className="text-sm">Choose any plan that fits your needs. Your selected plan will be fixed for one year after payment.</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Pricing Plans */}
@@ -462,6 +546,16 @@ const PaymentPlans = () => {
                             </div>
                         )}
 
+                        {/* Fixed Plan Badge */}
+                        {isPlanFixed && selectedPlan === plan.id && (
+                            <div className="absolute -top-2 -left-2">
+                                <div className="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center">
+                                    <FiCheck size={10} className="mr-1" />
+                                    FIXED FOR YEAR
+                                </div>
+                            </div>
+                        )}
+
                         <div className="p-6">
                             {/* Plan Header */}
                             <div className="text-center mb-6">
@@ -488,11 +582,15 @@ const PaymentPlans = () => {
                                 <button
                                     onClick={() => handleSelectPlan(plan.id)}
                                     className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 ${selectedPlan === plan.id
-                                        ? 'bg-[#4A90E2] text-white shadow-lg'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        ? isPlanFixed ? 'bg-green-600 text-white shadow-lg' : 'bg-[#4A90E2] text-white shadow-lg'
+                                        : isPlanFixed ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
+                                    disabled={isPlanFixed && selectedPlan !== plan.id}
                                 >
-                                    {selectedPlan === plan.id ? 'Selected' : 'Select Plan'}
+                                    {selectedPlan === plan.id
+                                        ? (isPlanFixed ? 'Fixed for Year' : 'Selected')
+                                        : (isPlanFixed ? 'Plan Locked' : 'Select Plan')
+                                    }
                                 </button>
                             </div>
 
