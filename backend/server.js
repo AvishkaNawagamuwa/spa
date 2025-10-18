@@ -30,6 +30,9 @@ const authRoutes = require('./routes/authRoutes');
 // Import blog routes
 const blogRoutes = require('./routes/blogRoutes');
 
+// Import services
+const PaymentStatusChecker = require('./services/paymentStatusChecker');
+
 // Import database connection
 const db = require('./config/database');
 
@@ -156,4 +159,8 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://localhost:${PORT} with Socket.io enabled`);
   console.log(`🔗 Test the server at: http://localhost:${PORT}/api/auth/test`);
   console.log(`📧 Email notifications: ${process.env.EMAIL_USER ? 'Enabled' : 'Disabled'}`);
+
+  // Start payment status checker service
+  PaymentStatusChecker.startScheduler();
+  console.log('💰 Payment status checker service started');
 });

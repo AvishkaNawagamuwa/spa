@@ -101,28 +101,30 @@ router.get('/payment-status', verifyAdminSPA, async (req, res) => {
 
         const spaData = spa[0];
 
-        // Check if there's an active payment that should lock the plan
-        // A payment locks the plan only if:
-        // 1. Payment exists and is completed or pending approval
-        // 2. Payment was made recently (within last 30 days) OR there's a valid next_payment_date
-        let hasActivePayment = false;
+        // Check if payment can be made based on next payment date
+        // Users can make payments only when current date >= next_payment_date
+        let canMakePayment = true;
 
-        if (spaData.payment_status && (spaData.payment_status === 'completed' || spaData.payment_status === 'pending_approval')) {
+        if (spaData.next_payment_date) {
+            const nextPaymentDate = new Date(spaData.next_payment_date);
+            const currentDate = new Date();
+            canMakePayment = currentDate >= nextPaymentDate;
+        }
 
-            // If there's a valid next_payment_date, use it to determine if subscription is active
-            if (spaData.next_payment_date) {
-                const nextPaymentDate = new Date(spaData.next_payment_date);
-                const currentDate = new Date();
-                hasActivePayment = currentDate < nextPaymentDate;
-            } else {
-                // If no next_payment_date, check if payment was made recently (within last 30 days)
-                // This handles cases where the payment was just made but next_payment_date wasn't set
-                const paymentDate = new Date(spaData.payment_date);
-                const currentDate = new Date();
-                const daysDifference = (currentDate - paymentDate) / (1000 * 60 * 60 * 24);
+        // Check if payment is overdue (5+ days past next payment date)
+        let isOverdue = false;
+        if (spaData.next_payment_date) {
+            const nextPaymentDate = new Date(spaData.next_payment_date);
+            const currentDate = new Date();
+            const daysPastDue = (currentDate - nextPaymentDate) / (1000 * 60 * 60 * 24);
+            isOverdue = daysPastDue > 5;
 
-                // Lock plan if payment was made within last 30 days
-                hasActivePayment = daysDifference <= 30;
+            // Auto-update spa status to unverified if 5+ days overdue
+            if (isOverdue && spaData.status === 'verified') {
+                await db.execute(`
+                    UPDATE spas SET status = 'unverified' WHERE id = ?
+                `, [req.user.spa_id]);
+                spaData.status = 'unverified'; // Update local data
             }
         }
 
@@ -137,10 +139,10 @@ router.get('/payment-status', verifyAdminSPA, async (req, res) => {
                 status: spaData.status,
                 payment_status: spaData.payment_status,
                 currentPlan: spaData.payment_plan,
-                hasActivePayment: hasActivePayment,
                 next_payment_date: spaData.next_payment_date,
-                is_overdue: spaData.is_overdue,
-                access_restricted: spaData.is_overdue,
+                can_make_payment: canMakePayment,
+                is_overdue: isOverdue,
+                access_restricted: isOverdue,
                 payment_method: spaData.payment_method,
                 payment_date: spaData.payment_date
             }
@@ -261,6 +263,35 @@ router.post('/process-card-payment', verifyAdminSPA, async (req, res) => {
             });
         }
 
+        // Check if payment is allowed based on next payment date
+        const [spaCheck] = await db.execute(`
+            SELECT next_payment_date FROM spas WHERE id = ?
+        `, [req.user.spa_id]);
+
+        if (spaCheck.length > 0 && spaCheck[0].next_payment_date) {
+            const nextPaymentDate = new Date(spaCheck[0].next_payment_date);
+            const currentDate = new Date();
+            if (currentDate < nextPaymentDate) {
+                const nextDateFormatted = nextPaymentDate.toLocaleDateString('en-GB', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                return res.status(400).json({
+                    success: false,
+                    error: 'Payment not available before next payment date',
+                    details: {
+                        message: 'You cannot make another payment until your next payment date arrives.',
+                        next_payment_date: nextDateFormatted,
+                        current_date: currentDate.toLocaleDateString('en-GB'),
+                        days_remaining: Math.ceil((nextPaymentDate - currentDate) / (1000 * 60 * 60 * 24))
+                    }
+                });
+            }
+        }
+
         // Get plan details - using only allowed payment_type enum values
         const planPrices = {
             'monthly': { amount: 5000, duration_months: 1, type: 'monthly', plan: 'Monthly' },
@@ -344,6 +375,7 @@ router.post('/process-bank-transfer', verifyAdminSPA, upload.single('transfer_pr
         console.log('🏦 Bank transfer request received');
         console.log('📋 Request body:', req.body);
         console.log('📁 File uploaded:', req.file ? req.file.filename : 'No file');
+        console.log('👤 User SPA ID:', req.user.spa_id);
 
         const { plan_id, payment_method } = req.body;
 
@@ -365,6 +397,35 @@ router.post('/process-bank-transfer', verifyAdminSPA, upload.single('transfer_pr
             });
         }
 
+        // Check if payment is allowed based on next payment date
+        const [spaCheck] = await db.execute(`
+            SELECT next_payment_date FROM spas WHERE id = ?
+        `, [req.user.spa_id]);
+
+        if (spaCheck.length > 0 && spaCheck[0].next_payment_date) {
+            const nextPaymentDate = new Date(spaCheck[0].next_payment_date);
+            const currentDate = new Date();
+            if (currentDate < nextPaymentDate) {
+                const nextDateFormatted = nextPaymentDate.toLocaleDateString('en-GB', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                return res.status(400).json({
+                    success: false,
+                    error: 'Payment not available before next payment date',
+                    details: {
+                        message: 'You cannot make another payment until your next payment date arrives.',
+                        next_payment_date: nextDateFormatted,
+                        current_date: currentDate.toLocaleDateString('en-GB'),
+                        days_remaining: Math.ceil((nextPaymentDate - currentDate) / (1000 * 60 * 60 * 24))
+                    }
+                });
+            }
+        }
+
         // Get plan details - using only allowed payment_type enum values  
         const planPrices = {
             'monthly': { amount: 5000, duration_months: 1, type: 'monthly', plan: 'Monthly' },
@@ -375,9 +436,11 @@ router.post('/process-bank-transfer', verifyAdminSPA, upload.single('transfer_pr
 
         const plan = planPrices[plan_id];
         if (!plan) {
+            console.log('❌ Invalid plan selected:', plan_id);
             return res.status(400).json({ success: false, error: 'Invalid plan selected' });
         }
 
+        console.log('📋 Plan details:', plan);
         const connection = await db.getConnection();
 
         try {

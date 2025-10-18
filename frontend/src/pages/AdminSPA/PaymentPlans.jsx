@@ -8,9 +8,9 @@ const PaymentPlans = () => {
     const [selectedPlan, setSelectedPlan] = useState('annual');
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('card');
     const [showPaymentModal, setShowPaymentModal] = useState(false);
-    const [bankTransferProof, setBankTransferProof] = useState(null);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
-    const [isPlanFixed, setIsPlanFixed] = useState(false); // Track if plan is fixed for the year
+    const [nextPaymentDate, setNextPaymentDate] = useState(null);
+    const [canMakePayment, setCanMakePayment] = useState(true);
 
     // Enhanced payment form state
     const [cardDetails, setCardDetails] = useState({
@@ -19,7 +19,6 @@ const PaymentPlans = () => {
         cvv: '',
         holderName: ''
     });
-    const [paymentType, setPaymentType] = useState('annual_fee');
     const [validationErrors, setValidationErrors] = useState({});
     const [bankSlipFile, setBankSlipFile] = useState(null);
     const [availablePlans, setAvailablePlans] = useState([]);
@@ -37,42 +36,29 @@ const PaymentPlans = () => {
 
     useEffect(() => {
         fetchAvailablePlans();
-        checkExistingPayments();
+        checkPaymentStatus();
     }, []);
 
-    const checkExistingPayments = async () => {
+    const checkPaymentStatus = async () => {
         try {
-
             const response = await axios.get('http://localhost:3001/api/admin-spa-enhanced/payment-status', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
 
+            if (response.data.success && response.data.data) {
+                const { next_payment_date, can_make_payment } = response.data.data;
 
-
-            // Only fix the plan if there's an active payment (completed or pending approval)
-            // This means they've already made their payment choice for this year
-            if (response.data.success && response.data.data.hasActivePayment) {
-                setIsPlanFixed(true);
-                // Set the active plan based on existing payment
-                if (response.data.data.currentPlan) {
-                    const planMapping = {
-                        'Monthly': 'monthly',
-                        'Quarterly': 'quarterly',
-                        'Half-Yearly': 'half-yearly',
-                        'Annual': 'annual'
-                    };
-                    setSelectedPlan(planMapping[response.data.data.currentPlan] || 'annual');
+                if (next_payment_date) {
+                    setNextPaymentDate(new Date(next_payment_date));
                 }
 
-            } else {
-                // No active payment - user can freely select any plan
-                setIsPlanFixed(false);
-
+                // Use backend's calculation for payment availability
+                setCanMakePayment(can_make_payment);
             }
         } catch (error) {
-            console.error('Error checking existing payments:', error);
-            // If there's an error checking, allow plan selection (safer default)
-            setIsPlanFixed(false);
+            console.error('Error checking payment status:', error);
+            // If there's an error, allow payment (safer default for new users)
+            setCanMakePayment(true);
         }
     }; const fetchAvailablePlans = async () => {
         try {
@@ -158,17 +144,17 @@ const PaymentPlans = () => {
     ];
 
     const handleSelectPlan = (planId) => {
-        // If plan is fixed (after first successful payment), prevent changes
-        if (isPlanFixed) {
+        // Check if payment can be made
+        if (!canMakePayment && nextPaymentDate) {
             Swal.fire({
-                title: 'Plan Fixed for the Year',
-                text: 'Your payment plan is fixed for the complete year according to your spa subscription. You cannot change it until the next renewal period.',
+                title: 'Payment Not Available',
+                text: `Next payment is available on ${nextPaymentDate.toLocaleDateString('en-GB')}. Please wait until your next payment date.`,
                 icon: 'info',
                 confirmButtonColor: '#001F3F'
             });
             return;
         }
-        // Allow free selection before first payment
+        // Allow free plan selection
         setSelectedPlan(planId);
     };
 
@@ -179,7 +165,7 @@ const PaymentPlans = () => {
     const handleBankTransferUpload = (event) => {
         const file = event.target.files[0];
         if (file) {
-            setBankTransferProof(file);
+            setBankSlipFile(file);
         }
     };
 
@@ -199,14 +185,14 @@ const PaymentPlans = () => {
                 // Simulate PayHere integration
                 Swal.fire({
                     title: 'Payment Successful!',
-                    text: `Your ${planData.name} plan has been activated.`,
+                    text: `Your ${planData.name} plan payment has been completed. Next payment due on your scheduled date.`,
                     icon: 'success',
                     confirmButtonColor: '#001F3F'
                 });
                 setShowPaymentModal(false);
 
-                // Refresh payment status to lock the plan
-                await checkExistingPayments();
+                // Refresh payment status to update next payment date
+                await checkPaymentStatus();
             }
         } catch (error) {
             console.error('Payment error:', error);
@@ -221,58 +207,7 @@ const PaymentPlans = () => {
         }
     };
 
-    const processBankTransfer = async (planData) => {
-        if (!bankTransferProof) {
-            Swal.fire({
-                title: 'Upload Required',
-                text: 'Please upload proof of bank transfer.',
-                icon: 'warning',
-                confirmButtonColor: '#001F3F'
-            });
-            return;
-        }
 
-        const formData = new FormData();
-        formData.append('plan_id', planData.id);
-        formData.append('payment_method', 'bank_transfer');
-        formData.append('amount', planData.price);
-        formData.append('transfer_proof', bankTransferProof);
-
-        try {
-            setPaymentProcessing(true);
-
-            const response = await axios.post('/api/admin-spa-enhanced/process-payment', formData, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem('token')}`,
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
-
-            if (response.data.success) {
-                Swal.fire({
-                    title: 'Bank Transfer Submitted',
-                    text: 'Your payment is pending approval by LSA Admin.',
-                    icon: 'info',
-                    confirmButtonColor: '#001F3F'
-                });
-                setShowPaymentModal(false);
-                setBankTransferProof(null);
-
-                // Refresh payment status to lock the plan
-                await checkExistingPayments();
-            }
-        } catch (error) {
-            console.error('Bank transfer error:', error);
-            Swal.fire({
-                title: 'Upload Failed',
-                text: 'Please try again or contact support.',
-                icon: 'error',
-                confirmButtonColor: '#001F3F'
-            });
-        } finally {
-            setPaymentProcessing(false);
-        }
-    };
 
     // Card validation functions
     const validateCard = () => {
@@ -343,6 +278,33 @@ const PaymentPlans = () => {
     };
 
     const handlePayNow = () => {
+        // Check if payment can be made before next payment date
+        if (!canMakePayment && nextPaymentDate) {
+            const nextDateFormatted = nextPaymentDate.toLocaleDateString('en-GB', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            Swal.fire({
+                title: 'Payment Not Available',
+                html: `
+                    <div style="text-align: left; margin: 20px 0;">
+                        <p><strong>Next Payment Date:</strong> ${nextDateFormatted}</p>
+                        <p>You cannot make another payment until your next payment date arrives.</p>
+                        <p>Please wait until the scheduled date to make your next payment.</p>
+                    </div>
+                `,
+                icon: 'info',
+                confirmButtonText: 'Understood',
+                confirmButtonColor: '#001F3F',
+                backdrop: true,
+                allowOutsideClick: false
+            });
+            return;
+        }
+
         const planData = plans.find(p => p.id === selectedPlan);
         if (!planData) return;
 
@@ -386,36 +348,55 @@ const PaymentPlans = () => {
             });
 
             if (response.data.success) {
-                // Fix the selected plan for the year after successful payment (for any plan)
-                setIsPlanFixed(true);
-
                 Swal.fire({
                     title: 'Payment Successful!',
-                    text: `Your ${planData.name} plan payment has been processed successfully. Your plan is now fixed for the complete year.`,
+                    text: `Your ${planData.name} plan payment has been completed. Next payment due on your scheduled date.`,
                     icon: 'success',
                     confirmButtonColor: '#001F3F'
                 }).then(() => {
                     setShowPaymentModal(false);
-                    // Redirect to payment success page or refresh dashboard
-                    window.location.reload();
+                    // Refresh payment status to update next payment date
+                    checkPaymentStatus();
                 });
             } else {
                 throw new Error(response.data.message || 'Payment failed');
             }
         } catch (error) {
             console.error('Card payment error:', error);
-            Swal.fire({
-                title: 'Payment Failed',
-                text: error.response?.data?.message || 'Please try again or contact support.',
-                icon: 'error',
-                confirmButtonColor: '#001F3F'
-            });
+
+            // Check if it's a payment date restriction error
+            if (error.response?.status === 400 && error.response?.data?.details) {
+                const { details } = error.response.data;
+                Swal.fire({
+                    title: 'Payment Not Available',
+                    html: `
+                        <div style="text-align: left; margin: 20px 0;">
+                            <p><strong>Next Payment Date:</strong> ${details.next_payment_date}</p>
+                            <p><strong>Current Date:</strong> ${details.current_date}</p>
+                            <p><strong>Days Remaining:</strong> ${details.days_remaining} day(s)</p>
+                            <br>
+                            <p>${details.message}</p>
+                        </div>
+                    `,
+                    icon: 'info',
+                    confirmButtonText: 'Understood',
+                    confirmButtonColor: '#001F3F'
+                });
+            } else {
+                Swal.fire({
+                    title: 'Payment Failed',
+                    text: error.response?.data?.error || 'Please try again or contact support.',
+                    icon: 'error',
+                    confirmButtonColor: '#001F3F'
+                });
+            }
         } finally {
             setPaymentProcessing(false);
         }
     };
 
     const processEnhancedBankTransfer = async (planData) => {
+        console.log('🏦 Processing bank transfer for plan:', planData);
         try {
             if (!bankSlipFile) {
                 Swal.fire({
@@ -444,29 +425,50 @@ const PaymentPlans = () => {
             });
 
             if (response.data.success) {
-                // Fix the selected plan for the year after successful payment submission (for any plan)
-                setIsPlanFixed(true);
-
+                console.log('✅ Bank transfer upload successful:', response.data);
                 Swal.fire({
                     title: 'Upload Successful!',
-                    text: `Your ${planData.name} plan bank transfer slip has been uploaded successfully. Your payment plan is now fixed for the complete year. Payment will be verified by LSA Admin.`,
+                    text: `Your ${planData.name} plan bank transfer slip has been uploaded successfully. Payment will be verified by LSA Admin.`,
                     icon: 'success',
                     confirmButtonColor: '#001F3F'
                 }).then(() => {
                     setShowPaymentModal(false);
                     setBankSlipFile(null);
+                    // Refresh payment status to update availability
+                    checkPaymentStatus();
                 });
             } else {
                 throw new Error(response.data.message || 'Upload failed');
             }
         } catch (error) {
             console.error('Bank transfer error:', error);
-            Swal.fire({
-                title: 'Upload Failed',
-                text: 'Please try again or contact support.',
-                icon: 'error',
-                confirmButtonColor: '#001F3F'
-            });
+
+            // Check if it's a payment date restriction error
+            if (error.response?.status === 400 && error.response?.data?.details) {
+                const { details } = error.response.data;
+                Swal.fire({
+                    title: 'Payment Not Available',
+                    html: `
+                        <div style="text-align: left; margin: 20px 0;">
+                            <p><strong>Next Payment Date:</strong> ${details.next_payment_date}</p>
+                            <p><strong>Current Date:</strong> ${details.current_date}</p>
+                            <p><strong>Days Remaining:</strong> ${details.days_remaining} day(s)</p>
+                            <br>
+                            <p>${details.message}</p>
+                        </div>
+                    `,
+                    icon: 'info',
+                    confirmButtonText: 'Understood',
+                    confirmButtonColor: '#001F3F'
+                });
+            } else {
+                Swal.fire({
+                    title: 'Upload Failed',
+                    text: error.response?.data?.error || 'Please try again or contact support.',
+                    icon: 'error',
+                    confirmButtonColor: '#001F3F'
+                });
+            }
         } finally {
             setPaymentProcessing(false);
         }
@@ -493,14 +495,14 @@ const PaymentPlans = () => {
                 </p>
 
 
-                {/* Plan Status Notification */}
-                {isPlanFixed ? (
-                    <div className="mt-4 mx-auto max-w-lg bg-green-50 border border-green-200 rounded-lg p-4">
+                {/* Payment Status Notification */}
+                {!canMakePayment && nextPaymentDate ? (
+                    <div className="mt-4 mx-auto max-w-lg bg-orange-50 border border-orange-200 rounded-lg p-4">
                         <div className="flex items-center justify-center">
-                            <FiCheck className="text-green-600 mr-2" size={20} />
-                            <div className="text-green-800">
-                                <p className="font-semibold">Payment Plan Fixed for the Year</p>
-                                <p className="text-sm">Your {plans.find(p => p.id === selectedPlan)?.name} plan is locked for the complete year according to your spa subscription.</p>
+                            <FiCalendar className="text-orange-600 mr-2" size={20} />
+                            <div className="text-orange-800">
+                                <p className="font-semibold">Next Payment Available</p>
+                                <p className="text-sm">Your next payment will be available on {nextPaymentDate.toLocaleDateString('en-GB')}. You can select any plan on that date.</p>
                             </div>
                         </div>
                     </div>
@@ -510,7 +512,7 @@ const PaymentPlans = () => {
                             <FiCalendar className="text-blue-600 mr-2" size={20} />
                             <div className="text-blue-800">
                                 <p className="font-semibold">Select Your Payment Plan</p>
-                                <p className="text-sm">Choose any plan that fits your needs. Your selected plan will be fixed for one year after payment.</p>
+                                <p className="text-sm">Choose any plan that fits your business needs. All payments are treated as annual fees.</p>
                             </div>
                         </div>
                     </div>
@@ -546,12 +548,12 @@ const PaymentPlans = () => {
                             </div>
                         )}
 
-                        {/* Fixed Plan Badge */}
-                        {isPlanFixed && selectedPlan === plan.id && (
+                        {/* Selected Plan Badge */}
+                        {selectedPlan === plan.id && (
                             <div className="absolute -top-2 -left-2">
-                                <div className="bg-green-600 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center">
+                                <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center">
                                     <FiCheck size={10} className="mr-1" />
-                                    FIXED FOR YEAR
+                                    SELECTED
                                 </div>
                             </div>
                         )}
@@ -582,14 +584,14 @@ const PaymentPlans = () => {
                                 <button
                                     onClick={() => handleSelectPlan(plan.id)}
                                     className={`w-full py-3 px-4 rounded-lg font-semibold transition-all duration-200 ${selectedPlan === plan.id
-                                        ? isPlanFixed ? 'bg-green-600 text-white shadow-lg' : 'bg-[#4A90E2] text-white shadow-lg'
-                                        : isPlanFixed ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        ? 'bg-[#4A90E2] text-white shadow-lg'
+                                        : (!canMakePayment ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-gray-100 text-gray-700 hover:bg-gray-200')
                                         }`}
-                                    disabled={isPlanFixed && selectedPlan !== plan.id}
+                                    disabled={!canMakePayment}
                                 >
                                     {selectedPlan === plan.id
-                                        ? (isPlanFixed ? 'Fixed for Year' : 'Selected')
-                                        : (isPlanFixed ? 'Plan Locked' : 'Select Plan')
+                                        ? 'Selected'
+                                        : (!canMakePayment ? 'Payment Not Available' : 'Select Plan')
                                     }
                                 </button>
                             </div>
@@ -665,17 +667,12 @@ const PaymentPlans = () => {
                             </button>
                         </div>
 
-                        {/* Payment Type Selection */}
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">Payment Type</label>
-                            <select
-                                value={paymentType}
-                                onChange={(e) => setPaymentType(e.target.value)}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001F3F] focus:border-transparent"
-                            >
-                                <option value="registration_fee">Registration Fee</option>
-                                <option value="annual_fee">Annual Fee</option>
-                            </select>
+                        {/* Note: All payments are treated as Annual Fee */}
+                        <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center">
+                                <FiCheck className="text-green-600 mr-2" size={16} />
+                                <span className="text-green-800 text-sm font-medium">All payments are processed as Annual Fee</span>
+                            </div>
                         </div>
 
                         {/* Card Details Form */}
