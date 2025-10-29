@@ -24,7 +24,7 @@ import { SpaStatusProvider, useSpaStatus } from '../../contexts/SpaStatusContext
 
 // Import components
 import Dashboard from './Dashboard';
-import PaymentPlans from './PaymentPlans';
+import PaymentPlans from './PaymentPlansBackup';
 import SpaProfile from './SpaProfile';
 import NotificationHistory from './NotificationHistory';
 import ResubmitApplication from './ResubmitApplication';
@@ -2105,10 +2105,10 @@ const AdminSPAContent = () => {
                 {/* SPA Status Indicator */}
                 {spaStatus.status && spaStatus.status !== 'verified' && (
                     <div className={`px-6 py-3 border-l-4 ${spaStatus.status === 'pending' ? 'bg-yellow-50 border-yellow-400 text-yellow-800' :
-                            spaStatus.status === 'rejected' ? 'bg-red-50 border-red-400 text-red-800' :
-                                spaStatus.status === 'unverified' ? 'bg-blue-50 border-blue-400 text-blue-800' :
-                                    spaStatus.status === 'blacklisted' ? 'bg-gray-50 border-gray-400 text-gray-800' :
-                                        'bg-gray-50 border-gray-400 text-gray-800'
+                        spaStatus.status === 'rejected' ? 'bg-red-50 border-red-400 text-red-800' :
+                            spaStatus.status === 'unverified' ? 'bg-blue-50 border-blue-400 text-blue-800' :
+                                spaStatus.status === 'blacklisted' ? 'bg-gray-50 border-gray-400 text-gray-800' :
+                                    'bg-gray-50 border-gray-400 text-gray-800'
                         }`}>
                         <div className="flex items-center justify-between">
                             <div className="flex items-center">

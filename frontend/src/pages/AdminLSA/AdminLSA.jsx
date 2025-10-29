@@ -48,6 +48,31 @@ import Dashboard from './Dashboard';
 import ManageSpas from './ManageSpas';
 import ManageTherapists from './ManageTherapists';
 
+// Helper function to fix bank slip URLs
+const fixBankSlipUrl = (bankSlipPath) => {
+  if (!bankSlipPath) return null;
+
+  let bankSlipUrl = bankSlipPath;
+
+  // If the URL contains '/api/bank-slip/', replace it with '/uploads/payment-slips/'
+  if (bankSlipUrl.includes('/api/bank-slip/')) {
+    bankSlipUrl = bankSlipUrl.replace('/api/bank-slip/', '/uploads/payment-slips/');
+  }
+
+  // Ensure it starts with the correct base URL
+  if (!bankSlipUrl.startsWith('http')) {
+    if (bankSlipUrl.startsWith('/uploads/')) {
+      bankSlipUrl = `http://localhost:3001${bankSlipUrl}`;
+    } else if (bankSlipUrl.startsWith('uploads/')) {
+      bankSlipUrl = `http://localhost:3001/${bankSlipUrl}`;
+    } else {
+      bankSlipUrl = `http://localhost:3001/uploads/payment-slips/${bankSlipUrl}`;
+    }
+  }
+
+  return bankSlipUrl;
+};
+
 const AdminLSA = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -2204,7 +2229,13 @@ const AdminLSA = () => {
                     <div className="mb-2">
                       <span className="text-gray-500">Bank Slip:</span>
                       <button
-                        onClick={() => window.open(selectedPayment.bank_slip_path, '_blank')}
+                        onClick={() => {
+                          const bankSlipUrl = fixBankSlipUrl(selectedPayment.bank_slip_path);
+                          if (bankSlipUrl) {
+                            console.log('Opening bank slip URL:', bankSlipUrl);
+                            window.open(bankSlipUrl, '_blank');
+                          }
+                        }}
                         className="ml-2 text-blue-600 hover:text-blue-800 underline"
                       >
                         View Bank Slip
@@ -2295,7 +2326,13 @@ const AdminLSA = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {payment.bank_slip_path ? (
                         <button
-                          onClick={() => window.open(payment.bank_slip_path, '_blank')}
+                          onClick={() => {
+                            const bankSlipUrl = fixBankSlipUrl(payment.bank_slip_path);
+                            if (bankSlipUrl) {
+                              console.log('Opening bank slip URL:', bankSlipUrl);
+                              window.open(bankSlipUrl, '_blank');
+                            }
+                          }}
                           className="text-blue-600 hover:text-blue-800 text-sm underline"
                         >
                           View Bank Slip

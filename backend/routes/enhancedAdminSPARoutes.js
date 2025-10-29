@@ -294,7 +294,7 @@ router.post('/process-card-payment', verifyAdminSPA, async (req, res) => {
 
         // Get plan details - using only allowed payment_type enum values
         const planPrices = {
-            'monthly': { amount: 5000, duration_months: 1, type: 'monthly', plan: 'Monthly' },
+            'monthly': { amount: 5000, duration_months: 1, type: 'annual', plan: 'Monthly' },
             'quarterly': { amount: 14000, duration_months: 3, type: 'annual', plan: 'Quarterly' },
             'half-yearly': { amount: 25000, duration_months: 6, type: 'annual', plan: 'Half-Yearly' },
             'annual': { amount: 45000, duration_months: 12, type: 'annual', plan: 'Annual' }
@@ -428,7 +428,7 @@ router.post('/process-bank-transfer', verifyAdminSPA, upload.single('transfer_pr
 
         // Get plan details - using only allowed payment_type enum values  
         const planPrices = {
-            'monthly': { amount: 5000, duration_months: 1, type: 'monthly', plan: 'Monthly' },
+            'monthly': { amount: 5000, duration_months: 1, type: 'annual', plan: 'Monthly' },
             'quarterly': { amount: 14000, duration_months: 3, type: 'annual', plan: 'Quarterly' },
             'half-yearly': { amount: 25000, duration_months: 6, type: 'annual', plan: 'Half-Yearly' },
             'annual': { amount: 45000, duration_months: 12, type: 'annual', plan: 'Annual' }
@@ -671,6 +671,130 @@ router.get('/access-check', verifyAdminSPA, async (req, res) => {
     } catch (error) {
         console.error('Error checking access:', error);
         res.status(500).json({ success: false, error: 'Failed to check access' });
+    }
+});
+
+// Get rejected payments for resubmission
+router.get('/rejected-payments', verifyAdminSPA, async (req, res) => {
+    try {
+        if (!req.user.spa_id) {
+            return res.status(400).json({ success: false, error: 'No spa associated with this account' });
+        }
+
+        const [rejectedPayments] = await db.execute(`
+            SELECT 
+                id,
+                payment_type,
+                payment_method,
+                payment_plan,
+                amount,
+                payment_status,
+                rejection_reason,
+                bank_slip_path,
+                created_at,
+                updated_at
+            FROM payments 
+            WHERE spa_id = ? 
+                AND payment_type = 'annual' 
+                AND payment_status = 'rejected' 
+                AND payment_method = 'bank_transfer'
+            ORDER BY updated_at DESC
+        `, [req.user.spa_id]);
+
+        res.json({
+            success: true,
+            data: rejectedPayments
+        });
+
+    } catch (error) {
+        console.error('Error fetching rejected payments:', error);
+        res.status(500).json({ success: false, error: 'Failed to fetch rejected payments' });
+    }
+});
+
+// Resubmit rejected bank transfer payment
+router.post('/resubmit-payment', verifyAdminSPA, upload.single('transfer_proof'), async (req, res) => {
+    try {
+        console.log('🔄 Payment resubmission request received');
+        console.log('📋 Request body:', req.body);
+        console.log('📁 File uploaded:', req.file ? req.file.filename : 'No file');
+
+        const { payment_id } = req.body;
+
+        if (!req.user.spa_id) {
+            return res.status(400).json({ success: false, error: 'No spa associated with this account' });
+        }
+
+        if (!payment_id) {
+            return res.status(400).json({ success: false, error: 'Payment ID is required' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'New bank transfer slip is required' });
+        }
+
+        // Verify the payment belongs to this spa and is rejected
+        const [existingPayment] = await db.execute(`
+            SELECT * FROM payments 
+            WHERE id = ? AND spa_id = ? AND payment_type = 'annual' 
+                AND payment_status = 'rejected' AND payment_method = 'bank_transfer'
+        `, [payment_id, req.user.spa_id]);
+
+        if (existingPayment.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Rejected annual bank transfer payment not found'
+            });
+        }
+
+        const connection = await db.getConnection();
+
+        try {
+            await connection.beginTransaction();
+
+            // Update the payment with new slip and reset status to pending_approval
+            let newSlipPath = null;
+            if (req.file) {
+                newSlipPath = `uploads/payment-slips/${req.file.filename}`;
+            }
+
+            const [updateResult] = await connection.execute(`
+                UPDATE payments SET 
+                    bank_slip_path = ?,
+                    payment_status = 'pending_approval',
+                    rejection_reason = NULL,
+                    updated_at = NOW()
+                WHERE id = ? AND spa_id = ?
+            `, [newSlipPath, payment_id, req.user.spa_id]);
+
+            if (updateResult.affectedRows === 0) {
+                throw new Error('Failed to update payment');
+            }
+
+            await connection.commit();
+
+            res.json({
+                success: true,
+                message: `Payment resubmitted successfully! Your ${existingPayment[0].payment_plan} plan payment is now pending approval again.`,
+                data: {
+                    payment_id: payment_id,
+                    status: 'pending_approval',
+                    new_slip_uploaded: !!newSlipPath,
+                    payment_plan: existingPayment[0].payment_plan,
+                    amount: existingPayment[0].amount
+                }
+            });
+
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+        } finally {
+            connection.release();
+        }
+
+    } catch (error) {
+        console.error('Error resubmitting payment:', error);
+        res.status(500).json({ success: false, error: 'Failed to resubmit payment' });
     }
 });
 

@@ -8,6 +8,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
+const { sendPaymentStatusEmail } = require('../utils/emailService');
 
 // Error handler middleware
 const asyncHandler = (fn) => (req, res, next) => {
@@ -1547,6 +1548,14 @@ router.post('/enhanced/payments/:id/approve', async (req, res) => {
                 approved_by = 1
             WHERE id = ? AND payment_method = 'bank_transfer'
         `, [id]);
+
+        // Get SPA details for email notification
+        const [spaDetails] = await db.execute(`
+            SELECT s.name, s.email, s.owner_fname, s.owner_lname, s.status
+            FROM lsa_spa_management.spas s 
+            WHERE s.id = ?
+        `, [payment.spa_id]);
+
         // Only check payment_type === 'annual'
         if (payment.payment_type === 'annual') {
             console.log(`🎯 Annual payment detected for SPA ${payment.spa_id}. Updating status to verified...`);
@@ -1584,6 +1593,28 @@ router.post('/enhanced/payments/:id/approve', async (req, res) => {
             console.log(`ℹ️ Non-annual payment approved for SPA ${payment.spa_id}. Status remains unchanged.`);
         }
 
+        // Send email notification to SPA owner
+        if (spaDetails.length > 0) {
+            const spa = spaDetails[0];
+            console.log('📧 Sending payment approval email to:', spa.email);
+
+            const emailResult = await sendPaymentStatusEmail(
+                spa.email,
+                `${spa.owner_fname} ${spa.owner_lname}`,
+                spa.name,
+                'approved',
+                payment.payment_type,
+                payment.amount,
+                notes
+            );
+
+            if (emailResult.success) {
+                console.log('✅ Payment approval email sent successfully');
+            } else {
+                console.error('❌ Failed to send payment approval email:', emailResult.error);
+            }
+        }
+
         res.json({ success: true, message: 'Bank transfer approved successfully' });
     } catch (error) {
         console.error('Error approving bank transfer:', error);
@@ -1597,6 +1628,19 @@ router.post('/enhanced/payments/:id/reject', async (req, res) => {
         const { id } = req.params;
         const { reason } = req.body;
 
+        // First, get the payment details
+        const [paymentRows] = await db.execute(`
+            SELECT * FROM payments 
+            WHERE id = ? AND payment_method = 'bank_transfer'
+        `, [id]);
+
+        if (paymentRows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Payment not found' });
+        }
+
+        const payment = paymentRows[0];
+
+        // Update payment status
         await db.execute(`
             UPDATE payments SET 
                 payment_status = 'rejected',
@@ -1605,6 +1649,35 @@ router.post('/enhanced/payments/:id/reject', async (req, res) => {
                 approved_by = 1
             WHERE id = ? AND payment_method = 'bank_transfer'
         `, [reason, id]);
+
+        // Get SPA details for email notification
+        const [spaDetails] = await db.execute(`
+            SELECT s.name, s.email, s.owner_fname, s.owner_lname
+            FROM lsa_spa_management.spas s 
+            WHERE s.id = ?
+        `, [payment.spa_id]);
+
+        // Send email notification to SPA owner
+        if (spaDetails.length > 0) {
+            const spa = spaDetails[0];
+            console.log('📧 Sending payment rejection email to:', spa.email);
+
+            const emailResult = await sendPaymentStatusEmail(
+                spa.email,
+                `${spa.owner_fname} ${spa.owner_lname}`,
+                spa.name,
+                'rejected',
+                payment.payment_type,
+                payment.amount,
+                reason
+            );
+
+            if (emailResult.success) {
+                console.log('✅ Payment rejection email sent successfully');
+            } else {
+                console.error('❌ Failed to send payment rejection email:', emailResult.error);
+            }
+        }
 
         res.json({ success: true, message: 'Bank transfer rejected successfully' });
     } catch (error) {

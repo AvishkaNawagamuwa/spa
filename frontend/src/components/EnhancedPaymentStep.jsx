@@ -70,11 +70,7 @@ const PaymentStep = ({ onBack, onPaymentSuccess }) => {
             <div className="mb-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
                     <div
-                        className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 ${paymentMethod === 'card'
-                                ? 'border-gold bg-gold bg-opacity-10'
-                                : 'border-gray-200 hover:border-gold-light'
-                            }`}
-                        onClick={() => setPaymentMethod('card')}
+                        className={`border-2 rounded-xl p-4 transition-all duration-300 opacity-50 cursor-not-allowed bg-gray-100 border-gray-300`}
                     >
                         <div className="flex items-center">
                             <input
@@ -84,13 +80,14 @@ const PaymentStep = ({ onBack, onPaymentSuccess }) => {
                                 value="card"
                                 checked={paymentMethod === 'card'}
                                 onChange={() => setPaymentMethod('card')}
-                                className="w-5 h-5 text-gold focus:ring-gold border-gray-300"
+                                className="w-5 h-5 text-gray-400 focus:ring-gray-400 border-gray-300"
+                                disabled
                             />
-                            <label htmlFor="card-payment" className="ml-3 flex items-center cursor-pointer">
-                                <i className="fas fa-credit-card text-2xl text-gold mr-3"></i>
+                            <label htmlFor="card-payment" className="ml-3 flex items-center cursor-not-allowed">
+                                <i className="fas fa-credit-card text-2xl text-gray-400 mr-3"></i>
                                 <div>
-                                    <div className="font-semibold text-gray-800">Card Payment</div>
-                                    <div className="text-sm text-gray-600">Pay securely with your card</div>
+                                    <div className="font-semibold text-gray-500">Card Payment</div>
+                                    <div className="text-sm text-gray-400">Pay securely with your card (Currently Unavailable)</div>
                                 </div>
                             </label>
                         </div>
@@ -98,8 +95,8 @@ const PaymentStep = ({ onBack, onPaymentSuccess }) => {
 
                     <div
                         className={`border-2 rounded-xl p-4 cursor-pointer transition-all duration-300 ${paymentMethod === 'bank_transfer'
-                                ? 'border-gold bg-gold bg-opacity-10'
-                                : 'border-gray-200 hover:border-gold-light'
+                            ? 'border-gold bg-gold bg-opacity-10'
+                            : 'border-gray-200 hover:border-gold-light'
                             }`}
                         onClick={() => setPaymentMethod('bank_transfer')}
                     >

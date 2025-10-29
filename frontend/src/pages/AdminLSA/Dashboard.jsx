@@ -84,15 +84,13 @@ const Dashboard = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow p-6 transition-transform duration-300 hover:scale-105 border border-[#001F3F]">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-[#001F3F]">
           <div className="flex items-center">
-            <div className="p-3 bg-[#001F3F]/20 rounded-lg">
-              <FiGrid className="text-2xl text-[#001F3F]" />
-            </div>
-            <div className="ml-4 flex-1">
-              <h3 className="text-sm font-medium text-[#001F3F]">Total Registered Spas</h3>
-              <p className="text-3xl font-bold text-[#001F3F]">{dashboardStats.total_spas}</p>
+            <FiGrid className="text-[#001F3F] mr-3" size={20} />
+            <div>
+              <p className="text-sm text-gray-600">Total Registered Spas</p>
+              <p className="text-xl font-bold text-gray-800">{dashboardStats.total_spas}</p>
               <div className="text-xs text-gray-500 mt-1">
                 <span className="text-green-600">Verified: {dashboardStats.verified_spas}</span>
               </div>
@@ -100,14 +98,12 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 transition-transform duration-300 hover:scale-105 border border-[#001F3F]">
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-green-500">
           <div className="flex items-center">
-            <div className="p-3 bg-[#001F3F]/20 rounded-lg">
-              <FiFileText className="text-2xl text-[#001F3F]" />
-            </div>
-            <div className="ml-4 flex-1">
-              <h3 className="text-sm font-medium text-[#001F3F]">Total Registered Therapists</h3>
-              <p className="text-3xl font-bold text-[#001F3F]">{dashboardStats.total_therapists}</p>
+            <FiFileText className="text-green-500 mr-3" size={20} />
+            <div>
+              <p className="text-sm text-gray-600">Total Registered Therapists</p>
+              <p className="text-xl font-bold text-gray-800">{dashboardStats.total_therapists}</p>
               <div className="text-xs text-gray-500 mt-1">
                 <span className="text-green-600">Approved: {dashboardStats.approved_therapists}</span>
               </div>
@@ -115,14 +111,12 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 transition-transform duration-300 hover:scale-105 border border-[#001F3F]">
+        <div className="bg-white rounded-lg shadow p-4 border-l-4 border-blue-400">
           <div className="flex items-center">
-            <div className="p-3 bg-[#001F3F]/20 rounded-lg">
-              <FiClock className="text-2xl text-[#001F3F]" />
-            </div>
-            <div className="ml-4 flex-1">
-              <h3 className="text-sm font-medium text-[#001F3F]">Recent Activity</h3>
-              <p className="text-3xl font-bold text-[#001F3F]">{recentActivity.length}</p>
+            <FiClock className="text-blue-400 mr-3" size={20} />
+            <div>
+              <p className="text-sm text-gray-600">Recent Activity</p>
+              <p className="text-xl font-bold text-gray-800">{recentActivity.length}</p>
               <div className="text-xs text-gray-500 mt-1">
                 <span className="text-blue-600">Today & Yesterday</span>
               </div>

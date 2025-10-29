@@ -92,27 +92,7 @@ const ManageSpas = () => {
         return field;
     };
 
-    // Mock function to simulate correct API response (for testing)
-    const getMockSumithSpa = () => ({
-        spa_id: 42,
-        spa_name: 'sumith nawagamuwa',
-        owner_name: 'SUMITH Nawagmuwa',
-        email: 'sumithnamwagamuwa@gmail.com',
-        phone: '0768913697',
-        status: 'pending',
-        verification_status: 'pending',
-        payment_status: null,
-        annual_payment_status: 'pending',
-        // Raw JSON document fields (as they come from database)
-        form1_certificate_path: '["uploads\\\\spas\\\\form1\\\\form1Certificate-1760173923535-811789730.pdf"]',
-        nic_front_path: '["uploads\\\\spas\\\\nic\\\\nicFront-1760173923473-209931025.jpg"]',
-        nic_back_path: '["uploads\\\\spas\\\\nic\\\\nicBack-1760173923498-375879924.jpg"]',
-        br_attachment_path: '["uploads\\\\spas\\\\business\\\\brAttachment-1760173923521-487840553.pdf"]',
-        other_document_path: '["uploads\\\\spas\\\\misc\\\\otherDocument-1760173923545-727737845.jpg"]',
-        spa_banner_photos_path: '["uploads\\\\spas\\\\banners\\\\spaPhotosBanner-1760173923539-954270396.jpg"]',
-        registration_date: '2025-10-11T14:32:03.000Z',
-        created_at: '2025-10-11T14:32:03.000Z'
-    });
+
 
     const fetchSpas = async () => {
         try {
@@ -123,16 +103,6 @@ const ManageSpas = () => {
 
             if (response.data.success) {
                 let rawSpas = response.data.data.spas || [];
-
-                // TEMPORARY: Add mock Sumith spa with correct document data if not found
-                const sumithExists = rawSpas.find(spa => spa.spa_id === 42);
-                if (!sumithExists || !sumithExists.form1_certificate_path) {
-                    // Replace or add Sumith's spa with mock data for testing
-                    const mockSumithSpa = getMockSumithSpa();
-                    rawSpas = rawSpas.filter(spa => spa.spa_id !== 42); // Remove existing if any
-                    rawSpas.unshift(mockSumithSpa); // Add mock Sumith spa at the beginning
-                    console.log('Added mock Sumith spa with document data for testing');
-                }
 
                 // Process spa data to handle JSON document fields
                 const processedSpas = rawSpas.map(spa => ({
@@ -151,19 +121,6 @@ const ManageSpas = () => {
 
                 setSpas(processedSpas);
                 console.log('Spas loaded and processed:', processedSpas);
-
-                // Log Sumith's processed data for verification
-                const sumithProcessed = processedSpas.find(spa => spa.spa_id === 42);
-                if (sumithProcessed) {
-                    console.log('Sumith spa processed documents:', {
-                        form1: sumithProcessed.form1_certificate_path,
-                        nicFront: sumithProcessed.nic_front_path,
-                        nicBack: sumithProcessed.nic_back_path,
-                        brAttachment: sumithProcessed.br_attachment_path,
-                        otherDoc: sumithProcessed.other_document_path,
-                        spaBanner: sumithProcessed.spa_banner_photos_path
-                    });
-                }
             }
         } catch (error) {
             console.error('Error fetching spas:', error);

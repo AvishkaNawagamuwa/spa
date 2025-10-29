@@ -23,15 +23,19 @@ const ThirdPartyDashboard = () => {
         const user = urlParams.get('user');
         setCurrentUser(user);
 
-        fetchTherapists('');
+        // Don't fetch therapists on mount - only when user searches
     }, []);
 
     useEffect(() => {
-        const delayedSearch = setTimeout(() => {
-            fetchTherapists(search);
-        }, 500);
-
-        return () => clearTimeout(delayedSearch);
+        if (search.trim()) {
+            const delayedSearch = setTimeout(() => {
+                fetchTherapists(search);
+            }, 500);
+            return () => clearTimeout(delayedSearch);
+        } else {
+            // Clear results when search is empty
+            setTherapists([]);
+        }
     }, [search]);
 
     const fetchTherapists = async (query) => {
@@ -212,14 +216,14 @@ const ThirdPartyDashboard = () => {
                             <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Search by NIC, Name, or Current Spa"
+                                placeholder="Enter therapist name, NIC, or spa name to search..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#FFD700] focus:border-transparent text-sm"
                             />
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
-                            Enter therapist NIC number, name, or current spa name to search records
+                            Search will only display matching therapist records - no results shown by default
                         </p>
                     </div>
                 </div>
@@ -336,7 +340,7 @@ const ThirdPartyDashboard = () => {
                                 <UserGroupIcon className="mx-auto h-16 w-16 text-gray-400 mb-4" />
                                 <p className="text-lg font-medium text-gray-900">No therapist records found</p>
                                 <p className="text-sm text-gray-500 mt-1">
-                                    {search ? `No results for "${search}"` : 'Enter search criteria to find therapist records'}
+                                    {search ? `No results found for "${search}"` : 'Enter therapist name, NIC, or spa name to search'}
                                 </p>
                             </div>
                         )}

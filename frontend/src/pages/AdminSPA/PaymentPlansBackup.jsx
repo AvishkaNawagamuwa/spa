@@ -6,7 +6,7 @@ import Swal from 'sweetalert2';
 
 const PaymentPlans = () => {
     const [selectedPlan, setSelectedPlan] = useState('annual');
-    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('card');
+    const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('bank_transfer');
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [paymentProcessing, setPaymentProcessing] = useState(false);
     const [nextPaymentDate, setNextPaymentDate] = useState(null);
@@ -23,6 +23,13 @@ const PaymentPlans = () => {
     const [bankSlipFile, setBankSlipFile] = useState(null);
     const [availablePlans, setAvailablePlans] = useState([]);
 
+    // Rejected payments state
+    const [rejectedPayments, setRejectedPayments] = useState([]);
+    const [showResubmissionModal, setShowResubmissionModal] = useState(false);
+    const [selectedRejectedPayment, setSelectedRejectedPayment] = useState(null);
+    const [resubmissionFile, setResubmissionFile] = useState(null);
+    const [resubmissionProcessing, setResubmissionProcessing] = useState(false);
+
     // Handle SpaContext safely
     let subscriptionStatus = 'inactive';
     try {
@@ -37,6 +44,7 @@ const PaymentPlans = () => {
     useEffect(() => {
         fetchAvailablePlans();
         checkPaymentStatus();
+        fetchRejectedPayments();
     }, []);
 
     const checkPaymentStatus = async () => {
@@ -60,7 +68,9 @@ const PaymentPlans = () => {
             // If there's an error, allow payment (safer default for new users)
             setCanMakePayment(true);
         }
-    }; const fetchAvailablePlans = async () => {
+    }; // <-- Added missing closing brace
+
+    const fetchAvailablePlans = async () => {
         try {
             const response = await axios.get('/api/admin-spa-enhanced/payment-plans', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
@@ -68,6 +78,19 @@ const PaymentPlans = () => {
             setAvailablePlans(response.data.plans || []);
         } catch (error) {
             console.error('Error fetching payment plans:', error);
+        }
+    };
+
+    const fetchRejectedPayments = async () => {
+        try {
+            const response = await axios.get('http://localhost:3001/api/admin-spa-enhanced/rejected-payments', {
+                headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+            });
+            if (response.data.success) {
+                setRejectedPayments(response.data.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching rejected payments:', error);
         }
     };
 
@@ -159,6 +182,10 @@ const PaymentPlans = () => {
     };
 
     const handlePaymentMethodChange = (method) => {
+        // Disable card payment method
+        if (method === 'card') {
+            return;
+        }
         setSelectedPaymentMethod(method);
     };
 
@@ -206,8 +233,6 @@ const PaymentPlans = () => {
             setPaymentProcessing(false);
         }
     };
-
-
 
     // Card validation functions
     const validateCard = () => {
@@ -396,7 +421,7 @@ const PaymentPlans = () => {
     };
 
     const processEnhancedBankTransfer = async (planData) => {
-        console.log('🏦 Processing bank transfer for plan:', planData);
+        console.log('Processing bank transfer for plan:', planData);
         try {
             if (!bankSlipFile) {
                 Swal.fire({
@@ -425,7 +450,7 @@ const PaymentPlans = () => {
             });
 
             if (response.data.success) {
-                console.log('✅ Bank transfer upload successful:', response.data);
+                console.log('Bank transfer upload successful:', response.data);
                 Swal.fire({
                     title: 'Upload Successful!',
                     text: `Your ${planData.name} plan bank transfer slip has been uploaded successfully. Payment will be verified by LSA Admin.`,
@@ -485,6 +510,75 @@ const PaymentPlans = () => {
         return nextDate.toLocaleDateString('en-GB');
     };
 
+    // Handle resubmission file upload
+    const handleResubmissionFileUpload = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            setResubmissionFile(file);
+        }
+    };
+
+    // Open resubmission modal
+    const openResubmissionModal = (rejectedPayment) => {
+        setSelectedRejectedPayment(rejectedPayment);
+        setResubmissionFile(null);
+        setShowResubmissionModal(true);
+    };
+
+    // Process payment resubmission
+    const processResubmission = async () => {
+        if (!selectedRejectedPayment || !resubmissionFile) {
+            Swal.fire({
+                title: 'File Required',
+                text: 'Please upload a new bank transfer slip.',
+                icon: 'warning',
+                confirmButtonColor: '#001F3F'
+            });
+            return;
+        }
+
+        try {
+            setResubmissionProcessing(true);
+
+            const formData = new FormData();
+            formData.append('payment_id', selectedRejectedPayment.id);
+            formData.append('transfer_proof', resubmissionFile);
+
+            const response = await axios.post('http://localhost:3001/api/admin-spa-enhanced/resubmit-payment', formData, {
+                headers: {
+                    Authorization: `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            if (response.data.success) {
+                Swal.fire({
+                    title: 'Resubmission Successful!',
+                    text: response.data.message,
+                    icon: 'success',
+                    confirmButtonColor: '#001F3F'
+                }).then(() => {
+                    setShowResubmissionModal(false);
+                    setSelectedRejectedPayment(null);
+                    setResubmissionFile(null);
+                    // Refresh rejected payments list
+                    fetchRejectedPayments();
+                    checkPaymentStatus();
+                });
+            }
+        } catch (error) {
+            console.error('Resubmission error:', error);
+            Swal.fire({
+                title: 'Resubmission Failed',
+                text: error.response?.data?.error || 'Please try again or contact support.',
+                icon: 'error',
+                confirmButtonColor: '#001F3F'
+            });
+        } finally {
+            setResubmissionProcessing(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -493,7 +587,6 @@ const PaymentPlans = () => {
                 <p className="text-gray-600 max-w-2xl mx-auto">
                     Unlock the full potential of your spa management system. Choose the plan that fits your business needs.
                 </p>
-
 
                 {/* Payment Status Notification */}
                 {!canMakePayment && nextPaymentDate ? (
@@ -519,7 +612,47 @@ const PaymentPlans = () => {
                 )}
             </div>
 
-            {/* Pricing Plans */}
+            {/* Rejected Payments Notification */}
+            {rejectedPayments.length > 0 && (
+                <div className="mb-8">
+                    <div className="max-w-4xl mx-auto bg-red-50 border border-red-200 rounded-lg p-6">
+                        <div className="flex items-center mb-4">
+                            <FiAlertCircle className="text-red-600 mr-2" size={24} />
+                            <h2 className="text-xl font-semibold text-red-800">Payment Resubmission Required</h2>
+                        </div>
+                        <p className="text-red-700 mb-4">
+                            You have rejected annual bank transfer payments that require resubmission. Please review the rejection reasons and upload new bank transfer slips.
+                        </p>
+
+                        <div className="space-y-4">
+                            {rejectedPayments.map((payment) => (
+                                <div key={payment.id} className="bg-white border border-red-200 rounded-lg p-4">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <h3 className="font-semibold text-gray-800">{payment.payment_plan} Plan</h3>
+                                            <p className="text-sm text-gray-600">Amount: LKR {payment.amount.toLocaleString()}</p>
+                                            <p className="text-sm text-gray-600">Rejected: {new Date(payment.updated_at).toLocaleDateString('en-GB')}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => openResubmissionModal(payment)}
+                                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                        >
+                                            Resubmit Payment
+                                        </button>
+                                    </div>
+
+                                    <div className="bg-red-50 border border-red-200 rounded p-3">
+                                        <p className="font-medium text-red-800 text-sm">Rejection Reason:</p>
+                                        <p className="text-red-700 text-sm mt-1">{payment.rejection_reason}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Pricing Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 {plans.map((plan) => (
                     <div
@@ -643,15 +776,12 @@ const PaymentPlans = () => {
                         <h4 className="text-md font-semibold text-gray-800 mb-4">Choose Payment Method</h4>
                         <div className="grid grid-cols-2 gap-4 mb-6">
                             <button
-                                onClick={() => handlePaymentMethodChange('card')}
-                                className={`p-4 border-2 rounded-lg transition-all ${selectedPaymentMethod === 'card'
-                                    ? 'border-[#001F3F] bg-blue-50'
-                                    : 'border-gray-200 hover:border-gray-300'
-                                    }`}
+                                disabled
+                                className="p-4 border-2 rounded-lg transition-all border-gray-200 bg-gray-100 cursor-not-allowed opacity-50"
                             >
-                                <FiCreditCard className={`mx-auto mb-2 ${selectedPaymentMethod === 'card' ? 'text-[#001F3F]' : 'text-gray-400'}`} size={24} />
-                                <div className="text-sm font-medium">Card Payment</div>
-                                <div className="text-xs text-gray-500">PayHere Gateway</div>
+                                <FiCreditCard className="mx-auto mb-2 text-gray-400" size={24} />
+                                <div className="text-sm font-medium text-gray-500">Card Payment</div>
+                                <div className="text-xs text-gray-400">Currently Disabled</div>
                             </button>
 
                             <button
@@ -802,7 +932,7 @@ const PaymentPlans = () => {
                                     />
                                     {bankSlipFile && (
                                         <p className="text-sm text-green-600 mt-2">
-                                            ✓ File selected: {bankSlipFile.name}
+                                            File selected: {bankSlipFile.name}
                                         </p>
                                     )}
                                 </div>
@@ -839,6 +969,70 @@ const PaymentPlans = () => {
                                 </div>
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Resubmission Modal */}
+            {showResubmissionModal && selectedRejectedPayment && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg max-w-md w-full p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold text-gray-800">Resubmit Payment</h3>
+                            <button
+                                onClick={() => setShowResubmissionModal(false)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                X
+                            </button>
+                        </div>
+
+                        <div className="mb-4">
+                            <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                                <h4 className="font-medium text-gray-800 mb-2">Payment Details:</h4>
+                                <p className="text-sm text-gray-600">Plan: {selectedRejectedPayment.payment_plan}</p>
+                                <p className="text-sm text-gray-600">Amount: LKR {selectedRejectedPayment.amount.toLocaleString()}</p>
+                            </div>
+
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                                <h4 className="font-medium text-red-800 mb-2">Rejection Reason:</h4>
+                                <p className="text-sm text-red-700">{selectedRejectedPayment.rejection_reason}</p>
+                            </div>
+
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Upload New Bank Transfer Slip *
+                            </label>
+                            <input
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.pdf"
+                                onChange={handleResubmissionFileUpload}
+                                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            {resubmissionFile && (
+                                <p className="text-sm text-green-600 mt-1">
+                                    File selected: {resubmissionFile.name}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={() => setShowResubmissionModal(false)}
+                                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={processResubmission}
+                                disabled={!resubmissionFile || resubmissionProcessing}
+                                className={`flex-1 px-4 py-2 rounded-lg text-white font-medium transition-colors ${!resubmissionFile || resubmissionProcessing
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : 'bg-red-600 hover:bg-red-700'
+                                    }`}
+                            >
+                                {resubmissionProcessing ? 'Submitting...' : 'Submit for Approval'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

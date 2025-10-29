@@ -189,6 +189,101 @@ const sendStatusUpdateEmail = async (toEmail, ownerName, spaName, status, userna
     }
 };
 
+/**
+ * Send payment status notification email to SPA owner
+ * @param {string} toEmail - Recipient's email address
+ * @param {string} ownerName - Full name of spa owner
+ * @param {string} spaName - Name of the spa
+ * @param {string} status - Payment status (approved/rejected)
+ * @param {string} paymentType - Type of payment (annual/registration)
+ * @param {number} amount - Payment amount
+ * @param {string} reason - Reason for rejection (if applicable)
+ */
+const sendPaymentStatusEmail = async (toEmail, ownerName, spaName, status, paymentType, amount, reason = null) => {
+    try {
+        const isApproved = status.toLowerCase() === 'approved';
+        const statusColor = isApproved ? '#28a745' : '#dc3545';
+        const statusText = isApproved ? 'Approved' : 'Rejected';
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: toEmail,
+            subject: `Payment ${statusText} - ${paymentType.charAt(0).toUpperCase() + paymentType.slice(1)} Payment - LSA Portal`,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+                    <div style="background-color: white; padding: 30px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                        
+                        <!-- Header -->
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <h1 style="color: #001F3F; margin: 0; font-size: 28px;">Lanka Spa Association</h1>
+                            <p style="color: #666; margin: 5px 0 0 0; font-size: 16px;">Payment Notification</p>
+                        </div>
+                        
+                        <!-- Greeting -->
+                        <div style="margin-bottom: 30px;">
+                            <h2 style="color: #333; margin: 0 0 10px 0;">Dear ${ownerName},</h2>
+                            <p style="color: #666; line-height: 1.6; margin: 0;">
+                                We are writing to inform you about the status of your ${paymentType} payment for ${spaName}.
+                            </p>
+                        </div>
+                        
+                        <!-- Payment Details -->
+                        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #001F3F;">
+                            <h4 style="color: #001F3F; margin-top: 0;">Payment Details:</h4>
+                            <p><strong>Spa Name:</strong> ${spaName}</p>
+                            <p><strong>Payment Type:</strong> ${paymentType.charAt(0).toUpperCase() + paymentType.slice(1)} Payment</p>
+                            <p><strong>Amount:</strong> LKR ${parseFloat(amount).toLocaleString()}</p>
+                            <p><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span></p>
+                        </div>
+                        
+                        ${isApproved ? `
+                            <div style="background-color: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+                                <h4 style="color: #155724; margin-top: 0;">🎉 Payment Approved!</h4>
+                                <p style="color: #155724;">Your ${paymentType} payment has been successfully approved and processed. Your services will be activated shortly.</p>
+                            </div>
+                        ` : `
+                            <div style="background-color: #f8d7da; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #dc3545;">
+                                <h4 style="color: #721c24; margin-top: 0;">❌ Payment Rejected</h4>
+                                ${reason ? `<p style="color: #721c24;"><strong>Reason:</strong> ${reason}</p>` : ''}
+                                <p style="color: #721c24;">Please review the reason and submit a corrected payment if needed.</p>
+                            </div>
+                        `}
+                        
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="http://localhost:5173/login" 
+                               style="background-color: #001F3F; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                                Access Your Dashboard
+                            </a>
+                        </div>
+                        
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                        
+                        <p style="color: #666; font-size: 14px;">
+                            If you have any questions about this payment or need assistance, please contact our support team.<br>
+                            This email was sent automatically. Please do not reply to this email.
+                        </p>
+                        
+                        <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
+                            <p>Best regards,<br>
+                            <strong>Lanka Spa Association Financial Team</strong></p>
+                            <p>© 2025 Lanka Spa Association. All rights reserved.</p>
+                        </div>
+                    </div>
+                </div>
+            `
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log(`✅ Payment status email sent successfully to: ${toEmail}`);
+        console.log('📧 Message ID:', info.messageId);
+        return { success: true, messageId: info.messageId };
+
+    } catch (error) {
+        console.error('❌ Failed to send payment status email:', error);
+        return { success: false, error: error.message };
+    }
+};
+
 // Test email connection
 const testEmailConnection = async () => {
     try {
@@ -204,5 +299,6 @@ const testEmailConnection = async () => {
 module.exports = {
     sendRegistrationEmail,
     sendStatusUpdateEmail,
+    sendPaymentStatusEmail,
     testEmailConnection
 };

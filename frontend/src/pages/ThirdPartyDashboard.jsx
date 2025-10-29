@@ -33,7 +33,7 @@ const ThirdPartyDashboard = () => {
         }
 
         fetchUserInfo();
-        loadAllTherapists(); // Load all therapists on mount
+        // Don't load all therapists on mount - only show results when user searches
     }, []);
 
     const fetchUserInfo = async () => {
@@ -82,9 +82,9 @@ const ThirdPartyDashboard = () => {
     };
 
     const handleSearch = async () => {
-        // If search query is empty, show all therapists
+        // Clear results if search query is empty
         if (!searchQuery.trim()) {
-            setSearchResults(allTherapists);
+            setSearchResults([]);
             return;
         }
 
@@ -116,21 +116,23 @@ const ThirdPartyDashboard = () => {
         setSearchQuery(query);
 
         console.log('🔍 Search query:', query);
-        console.log('🔍 All therapists:', allTherapists.length);
 
+        // Clear results if query is empty - don't show all therapists
         if (!query.trim()) {
-            console.log('🔍 Showing all therapists');
-            setSearchResults(allTherapists);
-        } else {
-            // Filter locally for better performance
-            const filtered = allTherapists.filter(therapist =>
-                therapist.name.toLowerCase().includes(query.toLowerCase()) ||
-                therapist.nic.toLowerCase().includes(query.toLowerCase())
-            );
-            console.log('🔍 Filtered results:', filtered.length);
-            setSearchResults(filtered);
+            console.log('🔍 Clearing search results');
+            setSearchResults([]);
         }
     };
+
+    // Add useEffect for debounced search
+    useEffect(() => {
+        if (searchQuery.trim()) {
+            const delayedSearch = setTimeout(() => {
+                handleSearch();
+            }, 500);
+            return () => clearTimeout(delayedSearch);
+        }
+    }, [searchQuery]);
 
     const handleTherapistSelect = async (therapist) => {
         setSelectedTherapist(therapist);
@@ -308,7 +310,7 @@ const ThirdPartyDashboard = () => {
                             type="text"
                             value={searchQuery}
                             onChange={handleSearchInputChange}
-                            placeholder="Enter therapist name or NIC number (or leave empty to see all)..."
+                            placeholder="Enter therapist name or NIC number to search..."
                             className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001F3F] focus:border-transparent"
                             onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                         />
@@ -337,7 +339,7 @@ const ThirdPartyDashboard = () => {
                     <div className="bg-white rounded-lg shadow-md p-6">
                         <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
                             <FiUser className="mr-2 text-[#FFD700]" />
-                            Search Results ({searchResults.length} of {allTherapists.length} total)
+                            Search Results {searchResults.length > 0 && `(${searchResults.length} found)`}
                         </h3>
 
                         {searchResults.length > 0 ? (
@@ -389,7 +391,14 @@ const ThirdPartyDashboard = () => {
                         ) : (
                             <div className="text-center py-8 text-gray-500">
                                 <FiSearch size={48} className="mx-auto mb-4 opacity-50" />
-                                <p>{loading ? 'Loading therapists...' : 'No therapists found. Try searching by name or NIC number.'}</p>
+                                <p>
+                                    {loading
+                                        ? 'Searching therapists...'
+                                        : searchQuery.trim()
+                                            ? `No therapists found for "${searchQuery}"`
+                                            : 'Enter therapist name or NIC number to search'
+                                    }
+                                </p>
                             </div>
                         )}
                     </div>
