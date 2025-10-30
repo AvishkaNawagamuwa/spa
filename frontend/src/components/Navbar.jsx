@@ -274,6 +274,14 @@ const Navbar = () => {
               </button>
 
               <button
+                onClick={() => navigateTo('/verified-spas')}
+                className={`${isScrolled ? 'text-white' : 'text-[#0A1428]'} hover:text-gold-500 font-medium transition-colors duration-300 py-2 relative group`}
+              >
+                Verified SPAs
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-gold-500 transition-all duration-300 group-hover:w-full"></span>
+              </button>
+
+              <button
                 onClick={() => navigateTo('/gallery')}
                 className={`${isScrolled ? 'text-white' : 'text-[#0A1428]'} hover:text-gold-500 font-medium transition-colors duration-300 py-2 relative group`}
               >
@@ -424,6 +432,15 @@ const Navbar = () => {
                   className="block w-full text-left py-2 px-4 text-[#0A1428] hover:bg-[#0A1428] hover:text-white transition-all duration-200"
                 >
                   Blogs
+                </button>
+              </div>
+
+              <div className="border-t border-gray-100">
+                <button
+                  onClick={() => handleMobileLinkClick('/verified-spas')}
+                  className="block w-full text-left py-2 px-4 text-[#0A1428] hover:bg-[#0A1428] hover:text-white transition-all duration-200"
+                >
+                  Verified SPAs
                 </button>
               </div>
 

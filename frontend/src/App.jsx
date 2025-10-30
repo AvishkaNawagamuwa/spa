@@ -17,6 +17,7 @@ import TestNotifications from "./pages/TestNotifications";
 import ThirdPartyDashboard from "./pages/ThirdPartyDashboard";
 import ThirdPartyLogin from "./pages/ThirdPartyLogin";
 import Login from "./pages/Login";
+import VerifiedSpas from "./pages/VerifiedSpas";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -37,6 +38,7 @@ function App() {
         <Route path="/registration" element={<Registration />} />
         <Route path="/registration-success" element={<RegistrationSuccess />} />
         <Route path="/contact" element={<Contact />} />
+        <Route path="/verified-spas" element={<VerifiedSpas />} />
 
         <Route path="/blogs" element={<BlogDisplay />} />
         <Route path="/blogs/:id" element={<Media />} />

@@ -422,4 +422,80 @@ router.get('/featured', async (req, res) => {
     }
 });
 
-module.exports = router;
+// Get verified SPAs for public display
+router.get('/verified-spas', async (req, res) => {
+    try {
+        const { page = 1, limit = 12, search = '' } = req.query;
+
+        console.log('API Request params:', { page, limit, search });
+
+        // Safely parse and validate pagination parameters
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 12));
+        const offset = (pageNum - 1) * limitNum;
+
+        console.log('Parsed params:', { pageNum, limitNum, offset });
+
+        // Build query dynamically to avoid parameter mismatch
+        let baseQuery = `
+            SELECT 
+                s.id,
+                s.name,
+                s.owner_fname,
+                s.owner_lname,
+                s.email,
+                s.phone,
+                s.address,
+                s.status,
+                s.created_at
+            FROM spas s
+            WHERE s.status = 'verified'
+        `;
+
+        let countQuery = `SELECT COUNT(*) as total FROM spas s WHERE s.status = 'verified'`;
+        let queryParams = [];
+
+        // Add search if provided
+        if (search && search.trim()) {
+            const searchCondition = ` AND (s.name LIKE ? OR s.address LIKE ? OR s.owner_fname LIKE ? OR s.owner_lname LIKE ?)`;
+            baseQuery += searchCondition;
+            countQuery += searchCondition;
+            const searchTerm = `%${search.trim()}%`;
+            queryParams = [searchTerm, searchTerm, searchTerm, searchTerm];
+        }
+
+        // Get total count first
+        const [countResult] = await db.execute(countQuery, queryParams);
+        const total = countResult[0].total;
+
+        // Add ordering and pagination to main query
+        baseQuery += ` ORDER BY s.name ASC LIMIT ${limitNum} OFFSET ${offset}`;
+
+        console.log('Final query:', baseQuery);
+        console.log('Query params:', queryParams);
+
+        // Execute main query
+        const [spas] = await db.execute(baseQuery, queryParams);
+
+        console.log('Found spas:', spas.length);
+
+        res.json({
+            success: true,
+            data: {
+                spas: spas,
+                total: total,
+                page: pageNum,
+                limit: limitNum,
+                totalPages: Math.ceil(total / limitNum)
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching verified spas:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to fetch verified spas',
+            message: error.message
+        });
+    }
+}); module.exports = router;
