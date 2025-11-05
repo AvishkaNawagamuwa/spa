@@ -166,6 +166,9 @@ router.put('/resubmit/:spaId', spaUpload, asyncHandler(async (req, res) => {
     try {
         const { spaId } = req.params;
 
+        console.log(`📝 Resubmission request for SPA ID: ${spaId}`);
+        console.log(`📎 Files received:`, req.files ? Object.keys(req.files) : 'none');
+
         // Check if spa exists and is rejected
         const existingSpa = await SpaModel.getSpaById(spaId);
         if (!existingSpa) {
@@ -200,26 +203,69 @@ router.put('/resubmit/:spaId', spaUpload, asyncHandler(async (req, res) => {
         };
 
         // Handle file uploads if provided (using actual table column names)
+        // Store paths as JSON arrays to match the initial registration format
+        // IMPORTANT: Store RELATIVE paths (not absolute), matching initial registration
         if (req.files) {
+            // Helper to convert absolute path to relative (remove backend dir prefix)
+            const toRelativePath = (absolutePath) => {
+                // multer gives: D:\...\backend\uploads\spas\nic\file.png
+                // we need: uploads\spas\nic\file.png
+                return absolutePath.replace(/.*[\\\/]backend[\\\/]/, '');
+            };
+
             if (req.files.nicFront && req.files.nicFront[0]) {
-                updateData.nic_front_path = `/uploads/spas/${req.files.nicFront[0].filename}`;
+                const relativePath = toRelativePath(req.files.nicFront[0].path);
+                updateData.nic_front_path = JSON.stringify([relativePath]);
+                console.log('📎 NIC Front uploaded:', relativePath);
             }
             if (req.files.nicBack && req.files.nicBack[0]) {
-                updateData.nic_back_path = `/uploads/spas/${req.files.nicBack[0].filename}`;
+                const relativePath = toRelativePath(req.files.nicBack[0].path);
+                updateData.nic_back_path = JSON.stringify([relativePath]);
+                console.log('📎 NIC Back uploaded:', relativePath);
             }
             if (req.files.brAttachment && req.files.brAttachment[0]) {
-                updateData.br_attachment_path = `/uploads/spas/${req.files.brAttachment[0].filename}`;
+                const relativePath = toRelativePath(req.files.brAttachment[0].path);
+                updateData.br_attachment_path = JSON.stringify([relativePath]);
+                console.log('📎 BR Attachment uploaded:', relativePath);
             }
             if (req.files.otherDocument && req.files.otherDocument[0]) {
-                updateData.other_document_path = `/uploads/spas/${req.files.otherDocument[0].filename}`;
+                const relativePath = toRelativePath(req.files.otherDocument[0].path);
+                updateData.other_document_path = JSON.stringify([relativePath]);
+                console.log('📎 Other Document uploaded:', relativePath);
             }
             if (req.files.form1Certificate && req.files.form1Certificate[0]) {
-                updateData.form1_certificate_path = `/uploads/spas/${req.files.form1Certificate[0].filename}`;
+                const relativePath = toRelativePath(req.files.form1Certificate[0].path);
+                updateData.form1_certificate_path = JSON.stringify([relativePath]);
+                console.log('📎 Form1 Certificate uploaded:', relativePath);
             }
             if (req.files.spaPhotosBanner && req.files.spaPhotosBanner[0]) {
-                updateData.spa_photos_banner_path = `/uploads/spas/${req.files.spaPhotosBanner[0].filename}`;
+                const relativePath = toRelativePath(req.files.spaPhotosBanner[0].path);
+                updateData.spa_photos_banner_path = JSON.stringify([relativePath]);
+                console.log('📎 SPA Banner uploaded:', relativePath);
+            }
+
+            // Handle multiple facility photos if provided
+            if (req.files.facilityPhotos && req.files.facilityPhotos.length > 0) {
+                updateData.facility_photos_path = JSON.stringify(
+                    req.files.facilityPhotos.map(file => toRelativePath(file.path))
+                );
+                console.log('📎 Facility Photos uploaded:', req.files.facilityPhotos.length, 'files');
+            }
+
+            // Handle multiple professional certifications if provided
+            if (req.files.professionalCertifications && req.files.professionalCertifications.length > 0) {
+                updateData.professional_certificates_path = JSON.stringify(
+                    req.files.professionalCertifications.map(file => toRelativePath(file.path))
+                );
+                console.log('📎 Professional Certifications uploaded:', req.files.professionalCertifications.length, 'files');
             }
         }
+
+        console.log(`✅ Update data prepared:`, {
+            ...updateData,
+            nic_front_path: updateData.nic_front_path ? 'uploaded' : 'not provided',
+            nic_back_path: updateData.nic_back_path ? 'uploaded' : 'not provided'
+        });
 
         const result = await SpaModel.resubmitSpa(spaId, updateData);
 

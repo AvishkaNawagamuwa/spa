@@ -1439,9 +1439,9 @@ router.get('/enhanced/payments/bank-transfers', async (req, res) => {
       CASE 
         WHEN p.bank_slip_path IS NOT NULL THEN 
             CASE 
-                WHEN p.bank_slip_path LIKE '/uploads/%' THEN CONCAT('http://localhost:3001', p.bank_slip_path)
-                WHEN p.bank_slip_path LIKE 'uploads/%' THEN CONCAT('http://localhost:3001/', p.bank_slip_path)
-                ELSE CONCAT('http://localhost:3001/uploads/', p.bank_slip_path)
+                WHEN REPLACE(p.bank_slip_path, '\\\\', '/') LIKE '/uploads/%' THEN CONCAT('http://localhost:3001', REPLACE(p.bank_slip_path, '\\\\', '/'))
+                WHEN REPLACE(p.bank_slip_path, '\\\\', '/') LIKE 'uploads/%' THEN CONCAT('http://localhost:3001/', REPLACE(p.bank_slip_path, '\\\\', '/'))
+                ELSE CONCAT('http://localhost:3001/', REPLACE(p.bank_slip_path, '\\\\', '/'))
             END
         ELSE NULL
       END as bank_slip_path
@@ -1480,9 +1480,9 @@ router.get('/enhanced/payments/history', async (req, res) => {
                 CASE 
                     WHEN p.bank_slip_path IS NOT NULL THEN 
                         CASE 
-                            WHEN p.bank_slip_path LIKE '/uploads/%' THEN CONCAT('http://localhost:3001', p.bank_slip_path)
-                            WHEN p.bank_slip_path LIKE 'uploads/%' THEN CONCAT('http://localhost:3001/', p.bank_slip_path)
-                            ELSE CONCAT('http://localhost:3001/uploads/', p.bank_slip_path)
+                            WHEN REPLACE(p.bank_slip_path, '\\\\', '/') LIKE '/uploads/%' THEN CONCAT('http://localhost:3001', REPLACE(p.bank_slip_path, '\\\\', '/'))
+                            WHEN REPLACE(p.bank_slip_path, '\\\\', '/') LIKE 'uploads/%' THEN CONCAT('http://localhost:3001/', REPLACE(p.bank_slip_path, '\\\\', '/'))
+                            ELSE CONCAT('http://localhost:3001/', REPLACE(p.bank_slip_path, '\\\\', '/'))
                         END
                     ELSE NULL
                 END as bank_slip_path,

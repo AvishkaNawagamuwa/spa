@@ -74,7 +74,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Serve static files from uploads directory
+// Serve static files from uploads directories
+// Try root uploads first (for annual payment slips), then backend uploads (for registration slips)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/gallery', express.static(path.join(__dirname, 'gallery')));
 

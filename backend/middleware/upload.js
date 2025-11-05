@@ -8,8 +8,14 @@ const ensureDirectories = () => {
     path.join(__dirname, '../uploads'),
     path.join(__dirname, '../uploads/BlogIMG'),
     path.join(__dirname, '../uploads/spas'),
+    path.join(__dirname, '../uploads/spas/nic'),
+    path.join(__dirname, '../uploads/spas/business'),
+    path.join(__dirname, '../uploads/spas/form1'),
+    path.join(__dirname, '../uploads/spas/misc'),
+    path.join(__dirname, '../uploads/spas/banners'),
     path.join(__dirname, '../uploads/spas/facility'),
     path.join(__dirname, '../uploads/spas/certifications'),
+    path.join(__dirname, '../uploads/spas/general'),
     path.join(__dirname, '../uploads/therapists')
   ];
 
@@ -29,16 +35,28 @@ const storage = multer.diskStorage({
     let uploadPath = path.join(__dirname, '../uploads/');
 
     // Determine upload path based on file field
-    if (file.fieldname.includes('facility_photos')) {
+    if (file.fieldname.includes('facility_photos') || file.fieldname.includes('facilityPhotos')) {
       uploadPath = path.join(__dirname, '../uploads/spas/facility/');
-    } else if (file.fieldname.includes('professional_certifications')) {
+    } else if (file.fieldname.includes('professional_certifications') || file.fieldname.includes('professionalCertifications')) {
       uploadPath = path.join(__dirname, '../uploads/spas/certifications/');
-    } else if (file.fieldname.startsWith('nic_') || file.fieldname.includes('br_') || file.fieldname.includes('tax_') || file.fieldname.includes('other_doc')) {
-      uploadPath = path.join(__dirname, '../uploads/spas/');
+    } else if (file.fieldname.startsWith('nic_') || file.fieldname.startsWith('nic') || file.fieldname === 'nicFront' || file.fieldname === 'nicBack') {
+      uploadPath = path.join(__dirname, '../uploads/spas/nic/');
+    } else if (file.fieldname.includes('br_') || file.fieldname === 'brAttachment') {
+      uploadPath = path.join(__dirname, '../uploads/spas/business/');
+    } else if (file.fieldname.includes('tax_') || file.fieldname === 'taxRegistration') {
+      uploadPath = path.join(__dirname, '../uploads/spas/misc/');
+    } else if (file.fieldname.includes('other_doc') || file.fieldname === 'otherDocument') {
+      uploadPath = path.join(__dirname, '../uploads/spas/misc/');
+    } else if (file.fieldname.includes('form1') || file.fieldname === 'form1Certificate') {
+      uploadPath = path.join(__dirname, '../uploads/spas/form1/');
+    } else if (file.fieldname.includes('banner') || file.fieldname === 'spaPhotosBanner') {
+      uploadPath = path.join(__dirname, '../uploads/spas/banners/');
     } else if (file.fieldname.includes('therapist') || file.fieldname.includes('medical') || file.fieldname.includes('certificate')) {
       uploadPath = path.join(__dirname, '../uploads/therapists/');
     } else if (file.fieldname === 'media') {
       uploadPath = path.join(__dirname, '../uploads/BlogIMG/');
+    } else {
+      uploadPath = path.join(__dirname, '../uploads/spas/');
     }
 
     cb(null, uploadPath);

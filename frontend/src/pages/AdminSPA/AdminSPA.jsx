@@ -22,6 +22,9 @@ import assets from '../../assets/images/images';
 // Import contexts
 import { SpaStatusProvider, useSpaStatus } from '../../contexts/SpaStatusContext';
 
+// Import validation utilities
+import { validateNIC } from '../../utils/validation';
+
 // Import components
 import Dashboard from './Dashboard';
 import PaymentPlans from './PaymentPlansBackup';
@@ -84,8 +87,11 @@ const AddTherapist = () => {
             }
             if (!formData.nic.trim()) {
                 newErrors.nic = 'NIC Number is required';
-            } else if (!/^\d{9}[V|X]$/i.test(formData.nic)) {
-                newErrors.nic = 'Invalid NIC format (9 digits + V/X)';
+            } else {
+                const nicValidation = validateNIC(formData.nic);
+                if (!nicValidation.valid) {
+                    newErrors.nic = nicValidation.message;
+                }
             }
             if (!formData.phone.trim()) {
                 newErrors.phone = 'Phone Number is required';
@@ -377,7 +383,7 @@ const AddTherapist = () => {
             let errorMessage = 'Failed to submit therapist registration. Please try again.';
 
             if (error.message.includes('Invalid NIC')) {
-                errorMessage = 'Invalid NIC format. Please use format: 123456789V or 123456789X';
+                errorMessage = 'Invalid NIC format. Use Old NIC (902541234V) or New NIC (200254123456)';
             } else if (error.message.includes('Invalid phone')) {
                 errorMessage = 'Invalid phone format. Please use format: +94771234567';
             } else if (error.message) {
@@ -512,10 +518,10 @@ const AddTherapist = () => {
                                     <input
                                         type="text"
                                         name="nic"
-                                        placeholder="NIC Number (123456789V)"
+                                        placeholder="NIC Number (902541234V or 200254123456)"
                                         value={formData.nic}
                                         onChange={handleInputChange}
-                                        maxLength="10"
+                                        maxLength="12"
                                         className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-[#0A1428] outline-none ${errors.nic ? 'border-red-500 bg-red-50' : 'border-gray-300'
                                             }`}
                                     />

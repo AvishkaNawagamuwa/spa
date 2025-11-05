@@ -409,11 +409,14 @@ router.post('/add-therapist', upload.fields([
             });
         }
 
-        // NIC format validation (9 digits + V/X)
-        if (!/^\d{9}[V|X]$/i.test(nic)) {
+        // NIC format validation - Support both Old (9 digits + V/X) and New (12 digits) formats
+        const oldNICPattern = /^[0-9]{9}[VXvx]$/;
+        const newNICPattern = /^[0-9]{12}$/;
+
+        if (!oldNICPattern.test(nic) && !newNICPattern.test(nic)) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid NIC format. Must be 9 digits followed by V or X'
+                message: 'Invalid NIC format. Use Old NIC (902541234V) or New NIC (200254123456)'
             });
         }
 
