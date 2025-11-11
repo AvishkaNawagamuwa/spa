@@ -257,13 +257,17 @@ const ManageTherapists = () => {
         // Filter by search query
         if (searchQuery) {
             filtered = filtered.filter(therapist =>
+                therapist.first_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                therapist.last_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 therapist.fname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 therapist.lname?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 therapist.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 therapist.telno?.includes(searchQuery) ||
+                therapist.phone?.includes(searchQuery) ||
                 therapist.nic?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 therapist.spa_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                therapist.specialty?.toLowerCase().includes(searchQuery.toLowerCase())
+                therapist.specialty?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                therapist.specialization?.toLowerCase().includes(searchQuery.toLowerCase())
             );
         }
 
@@ -600,17 +604,28 @@ const ManageTherapists = () => {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="flex items-center">
                                                 <div className="flex-shrink-0 h-10 w-10">
-                                                    <div className="h-10 w-10 rounded-full bg-[#001F3F] flex items-center justify-center">
+                                                    {therapist.id ? (
+                                                        <img
+                                                            src={`http://localhost:3001/api/lsa/therapists/${therapist.id}/document/therapist_image?action=view`}
+                                                            alt={`${therapist.first_name || therapist.fname} ${therapist.last_name || therapist.lname}`}
+                                                            className="h-10 w-10 rounded-full object-cover border-2 border-[#001F3F]"
+                                                            onError={(e) => {
+                                                                e.target.style.display = 'none';
+                                                                e.target.nextElementSibling.style.display = 'flex';
+                                                            }}
+                                                        />
+                                                    ) : null}
+                                                    <div className={`h-10 w-10 rounded-full bg-[#001F3F] items-center justify-center ${therapist.id ? 'hidden' : 'flex'}`}>
                                                         <span className="text-white font-medium text-sm">
-                                                            {therapist.fname && therapist.lname
-                                                                ? `${therapist.fname.charAt(0)}${therapist.lname.charAt(0)}`
+                                                            {(therapist.first_name || therapist.fname) && (therapist.last_name || therapist.lname)
+                                                                ? `${(therapist.first_name || therapist.fname).charAt(0)}${(therapist.last_name || therapist.lname).charAt(0)}`
                                                                 : 'T'}
                                                         </span>
                                                     </div>
                                                 </div>
                                                 <div className="ml-4">
                                                     <div className="text-sm font-medium text-gray-900">
-                                                        {therapist.fname} {therapist.lname}
+                                                        {therapist.first_name || therapist.fname} {therapist.last_name || therapist.lname}
                                                     </div>
                                                     <div className="text-sm text-gray-500">
                                                         NIC: {therapist.nic}

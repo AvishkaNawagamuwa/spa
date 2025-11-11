@@ -21,6 +21,7 @@ import assets from '../../assets/images/images';
 
 // Import contexts
 import { SpaStatusProvider, useSpaStatus } from '../../contexts/SpaStatusContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Import validation utilities
 import { validateNIC } from '../../utils/validation';
@@ -900,8 +901,8 @@ const AddTherapist = () => {
                             onClick={nextStep}
                             disabled={checkingNIC}
                             className={`flex items-center px-6 py-3 rounded-lg font-medium ${checkingNIC
-                                    ? 'bg-gray-400 text-white cursor-not-allowed'
-                                    : 'bg-[#0A1428] text-white hover:bg-[#1a2f4a]'
+                                ? 'bg-gray-400 text-white cursor-not-allowed'
+                                : 'bg-[#0A1428] text-white hover:bg-[#1a2f4a]'
                                 }`}
                         >
                             {checkingNIC ? (
@@ -1429,9 +1430,9 @@ const ViewTherapists = () => {
                         <div key={therapist.id} className="bg-gray-50 rounded-xl p-6 hover:shadow-md transition-shadow duration-200">
                             <div className="flex items-center space-x-3 mb-4">
                                 <img
-                                    src={therapist.photo}
+                                    src={`http://localhost:3001/api/lsa/therapists/${therapist.id}/document/therapist_image?action=view`}
                                     alt={therapist.name}
-                                    className="w-16 h-16 rounded-full object-cover bg-gray-200"
+                                    className="w-16 h-16 rounded-full object-cover bg-gray-200 border-2 border-[#0A1428]"
                                     onError={(e) => {
                                         e.target.style.display = 'none';
                                         e.target.nextSibling.style.display = 'flex';
@@ -1501,9 +1502,9 @@ const ViewTherapists = () => {
 
                         <div className="flex items-center space-x-6 mb-6">
                             <img
-                                src={selectedTherapist.photo}
+                                src={`http://localhost:3001/api/lsa/therapists/${selectedTherapist.id}/document/therapist_image?action=view`}
                                 alt={selectedTherapist.name}
-                                className="w-24 h-24 rounded-full object-cover bg-gray-200"
+                                className="w-24 h-24 rounded-full object-cover bg-gray-200 border-2 border-[#0A1428]"
                                 onError={(e) => {
                                     e.target.style.display = 'none';
                                     e.target.nextSibling.style.display = 'flex';
@@ -1761,6 +1762,7 @@ const ViewTherapists = () => {
 // Main AdminSPA Component with Status Management
 const AdminSPAContent = () => {
     const navigate = useNavigate();
+    const { logout: authLogout } = useAuth();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -1944,31 +1946,13 @@ const AdminSPAContent = () => {
             reverseButtons: true
         }).then((result) => {
             if (result.isConfirmed) {
-                // Clear authentication data
-                localStorage.removeItem('userData');
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('userRole');
-                localStorage.removeItem('spaId');
-
                 // Disconnect socket if connected
                 if (socket) {
                     socket.disconnect();
                 }
 
-                // Show success message
-                Swal.fire({
-                    title: 'Logged Out Successfully',
-                    text: 'You have been logged out from AdminSPA Dashboard',
-                    icon: 'success',
-                    confirmButtonColor: '#0A1428',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-
-                // Navigate to home page
-                setTimeout(() => {
-                    navigate('/');
-                }, 1000);
+                // Use AuthContext logout
+                authLogout();
             }
         });
     };

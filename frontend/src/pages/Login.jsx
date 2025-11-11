@@ -1,17 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from 'sweetalert2';
 import { FiUser, FiLock, FiEye, FiEyeOff, FiShield, FiArrowLeft } from 'react-icons/fi';
 import assets from '../assets/images/images';
+import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     username: "",
     password: ""
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated()) {
+      // Redirect to home or appropriate dashboard
+      navigate('/');
+    }
+  }, [isAuthenticated, navigate]);
 
   // Handle input changes
   const handleInputChange = (e) => {
@@ -53,9 +63,8 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Store user data in localStorage
-        localStorage.setItem('user', JSON.stringify(data.user));
-        localStorage.setItem('token', data.token);
+        // Use AuthContext login method
+        login(data.user, data.token);
         console.log('Stored user data:', data.user);
 
         // Show success message

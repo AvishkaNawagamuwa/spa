@@ -7,9 +7,11 @@ import {
 } from 'react-icons/fi';
 import axios from 'axios';
 import Swal from 'sweetalert2';
+import { useAuth } from '../contexts/AuthContext';
 
 const ThirdPartyDashboard = () => {
     const navigate = useNavigate();
+    const { logout: authLogout } = useAuth();
     const [searchQuery, setSearchQuery] = useState('');
     const [searchResults, setSearchResults] = useState([]);
     const [selectedTherapist, setSelectedTherapist] = useState(null);
@@ -244,24 +246,12 @@ const ThirdPartyDashboard = () => {
             reverseButtons: true
         }).then((result) => {
             if (result.isConfirmed) {
-                // Clear authentication data
+                // Clear third-party specific data
                 localStorage.removeItem('thirdPartyToken');
                 localStorage.removeItem('thirdPartyUser');
 
-                // Show success message
-                Swal.fire({
-                    title: 'Logged Out Successfully',
-                    text: 'You have been logged out from Government Portal',
-                    icon: 'success',
-                    confirmButtonColor: '#001F3F',
-                    timer: 1500,
-                    showConfirmButton: false
-                });
-
-                // Navigate to home page instead of third-party-login
-                setTimeout(() => {
-                    navigate('/');
-                }, 1000);
+                // Use AuthContext logout
+                authLogout();
             }
         });
     };

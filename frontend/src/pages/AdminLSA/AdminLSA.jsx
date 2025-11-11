@@ -42,6 +42,7 @@ import axios from 'axios';
 import Swal from 'sweetalert2';
 import io from 'socket.io-client';
 import assets from '../../assets/images/images';
+import { useAuth } from '../../contexts/AuthContext';
 
 // Import existing and new components
 import Dashboard from './Dashboard';
@@ -77,6 +78,7 @@ const fixBankSlipUrl = (bankSlipPath) => {
 
 const AdminLSA = () => {
   const navigate = useNavigate();
+  const { logout: authLogout } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [notifications, setNotifications] = useState([]);
@@ -906,30 +908,13 @@ const AdminLSA = () => {
       reverseButtons: true
     }).then((result) => {
       if (result.isConfirmed) {
-        // Clear authentication data
-        localStorage.removeItem('userData');
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('userRole');
-
         // Disconnect socket if connected
         if (socket) {
           socket.disconnect();
         }
 
-        // Show success message
-        Swal.fire({
-          title: 'Logged Out Successfully',
-          text: 'You have been logged out from AdminLSA Dashboard',
-          icon: 'success',
-          confirmButtonColor: '#0A1428',
-          timer: 1500,
-          showConfirmButton: false
-        });
-
-        // Navigate to home page
-        setTimeout(() => {
-          navigate('/');
-        }, 1000);
+        // Use AuthContext logout
+        authLogout();
       }
     });
   };

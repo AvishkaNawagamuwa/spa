@@ -369,7 +369,16 @@ const ResignTerminate = () => {
                             <div key={therapist.id} className="bg-gray-50 rounded-xl p-6 hover:shadow-md transition-shadow duration-200">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center space-x-3">
-                                        <div className="w-12 h-12 bg-[#0A1428] rounded-full flex items-center justify-center text-white font-semibold">
+                                        <img
+                                            src={`http://localhost:3001/api/lsa/therapists/${therapist.id}/document/therapist_image?action=view`}
+                                            alt={therapist.name}
+                                            className="w-12 h-12 rounded-full object-cover border-2 border-[#0A1428]"
+                                            onError={(e) => {
+                                                e.target.style.display = 'none';
+                                                e.target.nextElementSibling.style.display = 'flex';
+                                            }}
+                                        />
+                                        <div className="w-12 h-12 bg-[#0A1428] rounded-full hidden items-center justify-center text-white font-semibold">
                                             {therapist.name.split(' ').map(n => n[0]).join('')}
                                         </div>
                                         <div>

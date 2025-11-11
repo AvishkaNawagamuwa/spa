@@ -20,6 +20,7 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import VerifiedSpas from "./pages/VerifiedSpas";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -44,17 +45,31 @@ function App() {
 
         <Route path="/blogs" element={<BlogDisplay />} />
         <Route path="/blogs/:id" element={<Media />} />
-        <Route path="/adminLSA" element={<AdminLSA />} />
-        <Route path="/adminSPA" element={
-          <SpaContextProvider>
-            <AdminSPA />
-          </SpaContextProvider>
+
+        {/* Protected Admin Routes */}
+        <Route path="/adminLSA" element={
+          <ProtectedRoute allowedRoles={['admin_lsa', 'super_admin', 'admin', 'financial_officer']}>
+            <AdminLSA />
+          </ProtectedRoute>
         } />
+        <Route path="/adminSPA" element={
+          <ProtectedRoute allowedRoles={['admin_spa']}>
+            <SpaContextProvider>
+              <AdminSPA />
+            </SpaContextProvider>
+          </ProtectedRoute>
+        } />
+        <Route path="/third-party-dashboard" element={
+          <ProtectedRoute allowedRoles={['government_officer']}>
+            <ThirdPartyDashboard />
+          </ProtectedRoute>
+        } />
+
+        {/* Public Routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/test-notifications" element={<TestNotifications />} />
-        <Route path="/third-party-dashboard" element={<ThirdPartyDashboard />} />
         <Route path="/third-party-login" element={<ThirdPartyLogin />} />
       </Routes>
       {!hideLayout && <Footer />}
