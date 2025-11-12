@@ -166,6 +166,7 @@ router.get('/spas', asyncHandler(async (req, res) => {
             verification_status,
             city,
             spa_type,
+            district,
             page = 1,
             limit = 10,
             search
@@ -176,6 +177,7 @@ router.get('/spas', asyncHandler(async (req, res) => {
             verification_status,
             city,
             spa_type,
+            district,
             search,
             page: parseInt(page),
             limit: parseInt(limit)

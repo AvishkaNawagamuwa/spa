@@ -636,6 +636,51 @@ const UserDetailsStep = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-gray-600 mb-2 text-sm">
+                    District <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="district"
+                    value={userDetails.district}
+                    onChange={onDetailChange}
+                    onBlur={() => onFieldBlur && onFieldBlur('district')}
+                    className={`w-full px-5 py-3 border rounded-xl focus:ring-2 transition-all duration-300 ${validationErrors?.district
+                      ? 'border-red-500 focus:ring-red-300 focus:border-red-500'
+                      : 'border-gray-300 focus:ring-gold-light focus:border-gold'
+                      }`}
+                    required
+                  >
+                    <option value="">Select District</option>
+                    <option value="Ampara">Ampara</option>
+                    <option value="Anuradhapura">Anuradhapura</option>
+                    <option value="Badulla">Badulla</option>
+                    <option value="Batticaloa">Batticaloa</option>
+                    <option value="Colombo">Colombo</option>
+                    <option value="Gampaha">Gampaha</option>
+                    <option value="Galle">Galle</option>
+                    <option value="Hambantota">Hambantota</option>
+                    <option value="Jaffna">Jaffna</option>
+                    <option value="Kalutara">Kalutara</option>
+                    <option value="Kandy">Kandy</option>
+                    <option value="Kegalle">Kegalle</option>
+                    <option value="Kilinochchi">Kilinochchi</option>
+                    <option value="Kurunegala">Kurunegala</option>
+                    <option value="Mannar">Mannar</option>
+                    <option value="Matale">Matale</option>
+                    <option value="Matara">Matara</option>
+                    <option value="Monaragala">Monaragala</option>
+                    <option value="Mullaitivu">Mullaitivu</option>
+                    <option value="Nuwara Eliya">Nuwara Eliya</option>
+                    <option value="Polonnaruwa">Polonnaruwa</option>
+                    <option value="Puttalam">Puttalam</option>
+                    <option value="Ratnapura">Ratnapura</option>
+                    <option value="Trincomalee">Trincomalee</option>
+                    <option value="Vavuniya">Vavuniya</option>
+                  </select>
+                  <ErrorMessage error={validationErrors?.district} />
+                </div>
+
+                <div>
+                  <label className="block text-gray-600 mb-2 text-sm">
                     Police Division <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -1535,6 +1580,7 @@ const Registration = () => {
     spaAddressLine2: "",
     spaProvince: "",
     spaPostalCode: "",
+    district: "",
     policeDivision: "",
     spaTelephone: "",
     spaBRNumber: "",
@@ -1608,6 +1654,11 @@ const Registration = () => {
         break;
       case 'spaPostalCode':
         validation = validatePostalCode(value);
+        break;
+      case 'district':
+        validation = value && value.trim() !== ''
+          ? { valid: true, message: '' }
+          : { valid: false, message: 'District is required' };
         break;
       case 'policeDivision':
         validation = validateName(value, 'Police Division');

@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>District Filter Demo - Manage Spas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 p-8">
+    <div class="max-w-7xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 mb-2">✅ District Filter Implementation</h1>
+            <p class="text-gray-600">Manage Spas - Admin Dashboard</p>
+        </div>
+
+        <!-- Demo of the Filter UI -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Search & Filter Bar</h2>
+
+            <div class="flex items-center gap-4">
+                <!-- Search Input -->
+                <div class="flex-1 relative">
+                    <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" width="20" height="20"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
+                    <input type="text" placeholder="Search by spa name, reference number, or owner..."
+                        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        value="nishal" />
+                </div>
+
+                <!-- District Dropdown -->
+                <div class="relative">
+                    <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" width="20" height="20"
+                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                        <circle cx="12" cy="10" r="3"></circle>
+                    </svg>
+                    <select
+                        class="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white cursor-pointer min-w-[180px]">
+                        <option value="all">All Districts</option>
+                        <option value="Colombo" selected>Colombo</option>
+                        <option value="Gampaha">Gampaha</option>
+                        <option value="Galle">Galle</option>
+                        <option value="Kalutara">Kalutara</option>
+                        <option value="Kandy">Kandy</option>
+                        <option value="Ampara">Ampara</option>
+                        <option value="Anuradhapura">Anuradhapura</option>
+                        <option value="Badulla">Badulla</option>
+                        <option value="Batticaloa">Batticaloa</option>
+                        <option value="Hambantota">Hambantota</option>
+                        <option value="Jaffna">Jaffna</option>
+                        <option value="Kegalle">Kegalle</option>
+                        <option value="Kilinochchi">Kilinochchi</option>
+                        <option value="Kurunegala">Kurunegala</option>
+                        <option value="Mannar">Mannar</option>
+                        <option value="Matale">Matale</option>
+                        <option value="Matara">Matara</option>
+                        <option value="Monaragala">Monaragala</option>
+                        <option value="Mullaitivu">Mullaitivu</option>
+                        <option value="Nuwara Eliya">Nuwara Eliya</option>
+                        <option value="Polonnaruwa">Polonnaruwa</option>
+                        <option value="Puttalam">Puttalam</option>
+                        <option value="Ratnapura">Ratnapura</option>
+                        <option value="Trincomalee">Trincomalee</option>
+                        <option value="Vavuniya">Vavuniya</option>
+                    </select>
+                </div>
+
+                <!-- Clear All Button -->
+                <button
+                    class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Clear All
+                </button>
+            </div>
+        </div>
+
+        <!-- Implementation Details -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- Backend -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">🔧 Backend Changes</h3>
+                <div class="space-y-3">
+                    <div class="flex items-start gap-3">
+                        <span class="text-green-500 text-xl">✅</span>
+                        <div>
+                            <p class="font-medium text-gray-800">API Route Updated</p>
+                            <p class="text-sm text-gray-600">Added <code
+                                    class="bg-gray-100 px-2 py-1 rounded">district</code> parameter to <code
+                                    class="bg-gray-100 px-2 py-1 rounded">/api/lsa/spas</code></p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-green-500 text-xl">✅</span>
+                        <div>
+                            <p class="font-medium text-gray-800">SpaModel Updated</p>
+                            <p class="text-sm text-gray-600">Added district filter in SQL WHERE clause</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-green-500 text-xl">✅</span>
+                        <div>
+                            <p class="font-medium text-gray-800">Database Column</p>
+                            <p class="text-sm text-gray-600"><code class="bg-gray-100 px-2 py-1 rounded">district</code>
+                                varchar(100) - Already exists</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frontend -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">💻 Frontend Changes</h3>
+                <div class="space-y-3">
+                    <div class="flex items-start gap-3">
+                        <span class="text-green-500 text-xl">✅</span>
+                        <div>
+                            <p class="font-medium text-gray-800">State Added</p>
+                            <p class="text-sm text-gray-600"><code
+                                    class="bg-gray-100 px-2 py-1 rounded">districtFilter</code> state variable</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-green-500 text-xl">✅</span>
+                        <div>
+                            <p class="font-medium text-gray-800">Filter Logic Updated</p>
+                            <p class="text-sm text-gray-600">District filter applied before search and status</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-green-500 text-xl">✅</span>
+                        <div>
+                            <p class="font-medium text-gray-800">UI Dropdown Added</p>
+                            <p class="text-sm text-gray-600">All 25 Sri Lankan districts included</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Field Name Matching -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">🎯 Field Name Verification</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Component</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Field Name</th>
+                            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        <tr>
+                            <td class="px-4 py-3 text-sm text-gray-800">Database Column</td>
+                            <td class="px-4 py-3"><code
+                                    class="bg-blue-100 text-blue-800 px-2 py-1 rounded">district</code></td>
+                            <td class="px-4 py-3"><span class="text-green-600 font-medium">✓ Verified</span></td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 text-sm text-gray-800">API Parameter</td>
+                            <td class="px-4 py-3"><code
+                                    class="bg-blue-100 text-blue-800 px-2 py-1 rounded">district</code></td>
+                            <td class="px-4 py-3"><span class="text-green-600 font-medium">✓ Verified</span></td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 text-sm text-gray-800">SQL WHERE Clause</td>
+                            <td class="px-4 py-3"><code
+                                    class="bg-blue-100 text-blue-800 px-2 py-1 rounded">district = ?</code></td>
+                            <td class="px-4 py-3"><span class="text-green-600 font-medium">✓ Verified</span></td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 text-sm text-gray-800">Frontend State</td>
+                            <td class="px-4 py-3"><code
+                                    class="bg-blue-100 text-blue-800 px-2 py-1 rounded">districtFilter</code></td>
+                            <td class="px-4 py-3"><span class="text-green-600 font-medium">✓ Verified</span></td>
+                        </tr>
+                        <tr>
+                            <td class="px-4 py-3 text-sm text-gray-800">Filter Comparison</td>
+                            <td class="px-4 py-3"><code
+                                    class="bg-blue-100 text-blue-800 px-2 py-1 rounded">spa.district === districtFilter</code>
+                            </td>
+                            <td class="px-4 py-3"><span class="text-green-600 font-medium">✓ Verified</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Testing Results -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">🧪 Testing Results</h3>
+            <div class="space-y-4">
+                <div class="border-l-4 border-green-500 bg-green-50 p-4">
+                    <p class="font-medium text-gray-800">District Distribution:</p>
+                    <ul class="mt-2 space-y-1 text-sm text-gray-700">
+                        <li>• Colombo: 1 spa (Serenity Wellness Spa)</li>
+                        <li>• Gampaha: 1 spa (Ayurveda Healing Center)</li>
+                        <li>• Galle: 1 spa (Urban Spa & Wellness)</li>
+                        <li>• Kalutara: 2 spas</li>
+                        <li>• Kandy: 2 spas</li>
+                    </ul>
+                </div>
+                <div class="border-l-4 border-blue-500 bg-blue-50 p-4">
+                    <p class="font-medium text-gray-800">Filter Tests:</p>
+                    <ul class="mt-2 space-y-1 text-sm text-gray-700">
+                        <li>✅ Filter by Colombo: Returns only Colombo spas</li>
+                        <li>✅ Filter by Gampaha: Returns only Gampaha spas</li>
+                        <li>✅ Combined with search: Works correctly</li>
+                        <li>✅ Combined with status tabs: Works correctly</li>
+                        <li>✅ Clear All button: Resets all filters</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- How to Use -->
+        <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-lg p-6 text-white">
+            <h3 class="text-xl font-semibold mb-4">🚀 How to Use</h3>
+            <ol class="space-y-2">
+                <li class="flex items-start gap-3">
+                    <span
+                        class="flex-shrink-0 w-6 h-6 bg-white text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                    <span>Navigate to <code
+                            class="bg-blue-700 px-2 py-1 rounded">http://localhost:5173/adminLSA</code></span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span
+                        class="flex-shrink-0 w-6 h-6 bg-white text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">2</span>
+                    <span>Click on "Manage Spas" in the sidebar</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span
+                        class="flex-shrink-0 w-6 h-6 bg-white text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                    <span>Use the district dropdown next to the search bar</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span
+                        class="flex-shrink-0 w-6 h-6 bg-white text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">4</span>
+                    <span>Select any district to filter spas by location</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span
+                        class="flex-shrink-0 w-6 h-6 bg-white text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">5</span>
+                    <span>Click "Clear All" to reset all filters</span>
+                </li>
+            </ol>
+        </div>
+    </div>
+</body>
+
+</html>

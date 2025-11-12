@@ -26,6 +26,7 @@ const ManageSpas = () => {
     const [filteredSpas, setFilteredSpas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [districtFilter, setDistrictFilter] = useState('all');
     const [activeTab, setActiveTab] = useState('approved');
     const [approvedSubCategory, setApprovedSubCategory] = useState('all');
     const [selectedSpa, setSelectedSpa] = useState(null);
@@ -49,7 +50,7 @@ const ManageSpas = () => {
             calculateStats();
             filterSpas();
         }
-    }, [spas, searchQuery, activeTab, approvedSubCategory]);
+    }, [spas, searchQuery, districtFilter, activeTab, approvedSubCategory]);
 
 
     // Enhanced helper function to parse JSON document fields
@@ -184,6 +185,11 @@ const ManageSpas = () => {
 
     const filterSpas = () => {
         let filtered = spas;
+
+        // District filter
+        if (districtFilter && districtFilter !== 'all') {
+            filtered = filtered.filter(spa => spa.district === districtFilter);
+        }
 
         // Search filter - search by spa name, reference number, owner name
         if (searchQuery) {
@@ -733,12 +739,50 @@ const ManageSpas = () => {
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001F3F] focus:border-transparent"
                         />
                     </div>
-                    {searchQuery && (
+                    <div className="relative">
+                        <FiMapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                        <select
+                            value={districtFilter}
+                            onChange={(e) => setDistrictFilter(e.target.value)}
+                            className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#001F3F] focus:border-transparent appearance-none bg-white cursor-pointer min-w-[180px]"
+                        >
+                            <option value="all">All Districts</option>
+                            <option value="Ampara">Ampara</option>
+                            <option value="Anuradhapura">Anuradhapura</option>
+                            <option value="Badulla">Badulla</option>
+                            <option value="Batticaloa">Batticaloa</option>
+                            <option value="Colombo">Colombo</option>
+                            <option value="Gampaha">Gampaha</option>
+                            <option value="Galle">Galle</option>
+                            <option value="Hambantota">Hambantota</option>
+                            <option value="Jaffna">Jaffna</option>
+                            <option value="Kalutara">Kalutara</option>
+                            <option value="Kandy">Kandy</option>
+                            <option value="Kegalle">Kegalle</option>
+                            <option value="Kilinochchi">Kilinochchi</option>
+                            <option value="Kurunegala">Kurunegala</option>
+                            <option value="Mannar">Mannar</option>
+                            <option value="Matale">Matale</option>
+                            <option value="Matara">Matara</option>
+                            <option value="Monaragala">Monaragala</option>
+                            <option value="Mullaitivu">Mullaitivu</option>
+                            <option value="Nuwara Eliya">Nuwara Eliya</option>
+                            <option value="Polonnaruwa">Polonnaruwa</option>
+                            <option value="Puttalam">Puttalam</option>
+                            <option value="Ratnapura">Ratnapura</option>
+                            <option value="Trincomalee">Trincomalee</option>
+                            <option value="Vavuniya">Vavuniya</option>
+                        </select>
+                    </div>
+                    {(searchQuery || districtFilter !== 'all') && (
                         <button
-                            onClick={() => setSearchQuery('')}
+                            onClick={() => {
+                                setSearchQuery('');
+                                setDistrictFilter('all');
+                            }}
                             className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
                         >
-                            Clear
+                            Clear All
                         </button>
                     )}
                 </div>

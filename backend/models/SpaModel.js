@@ -145,6 +145,8 @@ class SpaModel {
                     s.email,
                     s.phone,
                     s.address,
+                    s.district,
+                    s.province,
                     s.reference_number,
                     s.status,
                     s.verification_status,
@@ -190,6 +192,12 @@ class SpaModel {
             if (filters.payment_status && filters.payment_status !== 'all') {
                 conditions.push('payment_status = ?');
                 params.push(filters.payment_status);
+            }
+
+            // District filter
+            if (filters.district && filters.district !== 'all') {
+                conditions.push('district = ?');
+                params.push(filters.district);
             }
 
             // Search filter (name, email, reference number)

@@ -50,7 +50,7 @@ router.get('/spas', async (req, res) => {
         s.annual_fee_paid,
         s.blacklist_reason,
         s.created_at,
-        s.spa_photos_banner_path,
+        s.spa_banner_photos_path,
         s.facility_photos,
         COUNT(t.id) as therapist_count,
         AVG(CASE WHEN r.rating THEN r.rating ELSE 0 END) as average_rating,
@@ -97,7 +97,7 @@ router.get('/spas', async (req, res) => {
                 phone: spa.spa_tel,
                 status: spa.status,
                 category: getCategoryFromSpa(spa),
-                banner_image: spa.spa_photos_banner_path,
+                spa_banner_photos_path: spa.spa_banner_photos_path,
                 facility_photos: facilityPhotos.slice(0, 3), // First 3 photos for preview
                 therapist_count: spa.therapist_count,
                 average_rating: parseFloat(spa.average_rating || 0).toFixed(1),
@@ -441,13 +441,23 @@ router.get('/verified-spas', async (req, res) => {
             SELECT 
                 s.id,
                 s.name,
+                s.spa_br_number,
                 s.owner_fname,
                 s.owner_lname,
-                s.email,
-                s.phone,
-                s.address,
+                COALESCE(s.email, s.owner_email) as email,
+                COALESCE(s.phone, s.spa_tel) as phone,
+                COALESCE(
+                    s.address,
+                    CONCAT_WS(', ', 
+                        NULLIF(s.address_line1, ''), 
+                        NULLIF(s.address_line2, ''), 
+                        NULLIF(s.province, ''), 
+                        NULLIF(s.postal_code, '')
+                    )
+                ) as address,
                 s.status,
-                s.created_at
+                s.created_at,
+                s.spa_banner_photos_path
             FROM spas s
             WHERE s.status = 'verified'
         `;
@@ -455,13 +465,13 @@ router.get('/verified-spas', async (req, res) => {
         let countQuery = `SELECT COUNT(*) as total FROM spas s WHERE s.status = 'verified'`;
         let queryParams = [];
 
-        // Add search if provided
+        // Add search if provided - including spa_br_number in search
         if (search && search.trim()) {
-            const searchCondition = ` AND (s.name LIKE ? OR s.address LIKE ? OR s.owner_fname LIKE ? OR s.owner_lname LIKE ?)`;
+            const searchCondition = ` AND (s.name LIKE ? OR s.spa_br_number LIKE ? OR s.address_line1 LIKE ? OR s.owner_fname LIKE ? OR s.owner_lname LIKE ?)`;
             baseQuery += searchCondition;
             countQuery += searchCondition;
             const searchTerm = `%${search.trim()}%`;
-            queryParams = [searchTerm, searchTerm, searchTerm, searchTerm];
+            queryParams = [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm];
         }
 
         // Get total count first

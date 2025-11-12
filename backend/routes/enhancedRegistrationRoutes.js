@@ -243,7 +243,7 @@ router.post('/submit', upload.fields([
             // User details
             firstName, lastName, email, telephone, cellphone, nicNo,
             // Spa details
-            spaName, spaAddressLine1, spaAddressLine2, spaProvince, spaPostalCode, policeDivision,
+            spaName, spaAddressLine1, spaAddressLine2, spaProvince, spaPostalCode, district, policeDivision,
             spaTelephone, spaBRNumber,
             // Payment details
             paymentMethod, bankDetails
@@ -327,18 +327,40 @@ router.post('/submit', upload.fields([
         const form1CertPath = filePaths.form1Certificate ? filePaths.form1Certificate : null;
         const spaBannerPath = filePaths.spaPhotosBanner ? filePaths.spaPhotosBanner : null;
         const otherDocPath = filePaths.otherDocument ? filePaths.otherDocument : null;
+        const taxRegPath = filePaths.taxRegistration ? filePaths.taxRegistration : null;
 
-        // Insert spa with ALL document paths
+        // Handle JSON arrays for facility photos and certifications
+        const facilityPhotosJSON = filePaths.facilityPhotos ? JSON.stringify(filePaths.facilityPhotos) : null;
+        const certificationsJSON = filePaths.professionalCertifications ? JSON.stringify(filePaths.professionalCertifications) : null;
+
+        // Insert spa with ALL document paths and ALL owner information
         const [spaResult] = await connection.execute(`
             INSERT INTO spas (
-                name, owner_fname, owner_lname, email, phone, address, police_division, status,
+                name, spa_br_number, spa_tel,
+                owner_fname, owner_lname, owner_email, owner_nic, owner_tel, owner_cell,
+                email, phone, address,
+                address_line1, address_line2, province, postal_code, district, police_division,
                 nic_front_path, nic_back_path, br_attachment_path, 
-                form1_certificate_path, spa_banner_photos_path, other_document_path
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                form1_certificate_path, spa_banner_photos_path, other_document_path, tax_registration_path,
+                facility_photos, professional_certifications,
+                status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-            spaName, firstName, lastName, email, spaTelephone, fullAddress, policeDivision, 'pending',
+            // Spa information
+            spaName, spaBRNumber, spaTelephone,
+            // Owner information (all fields)
+            firstName, lastName, email, nicNo, telephone, cellphone,
+            // Duplicate email/phone for backward compatibility
+            email, spaTelephone, fullAddress,
+            // Detailed address
+            spaAddressLine1, spaAddressLine2, spaProvince, spaPostalCode, district, policeDivision,
+            // Document file paths
             nicFrontPath, nicBackPath, brAttachmentPath,
-            form1CertPath, spaBannerPath, otherDocPath
+            form1CertPath, spaBannerPath, otherDocPath, taxRegPath,
+            // JSON arrays
+            facilityPhotosJSON, certificationsJSON,
+            // Status
+            'pending'
         ]);
 
         const spaId = spaResult.insertId;
@@ -374,16 +396,38 @@ router.post('/submit', upload.fields([
         }
 
         // Log all document paths that were saved
-        console.log('📁 Documents saved to database and file system:');
+        console.log('\n' + '='.repeat(70));
+        console.log('📁 ALL REGISTRATION DATA SAVED TO DATABASE');
+        console.log('='.repeat(70));
+        console.log('\n👤 OWNER INFORMATION:');
+        console.log(`   ✅ Name: ${firstName} ${lastName}`);
+        console.log(`   ✅ Email: ${email}`);
+        console.log(`   ✅ NIC: ${nicNo}`);
+        console.log(`   ✅ Telephone: ${telephone || 'Not provided'}`);
+        console.log(`   ✅ Cellphone: ${cellphone || 'Not provided'}`);
+
+        console.log('\n🏢 SPA INFORMATION:');
+        console.log(`   ✅ Spa Name: ${spaName}`);
+        console.log(`   ✅ BR Number: ${spaBRNumber}`);
+        console.log(`   ✅ Spa Tel: ${spaTelephone}`);
+        console.log(`   ✅ District: ${district}`);
+        console.log(`   ✅ Police Division: ${policeDivision}`);
+        console.log(`   ✅ Address: ${fullAddress}`);
+
+        console.log('\n📄 DOCUMENTS SAVED:');
         console.log(`   ✅ NIC Front: ${nicFrontPath || 'Not uploaded'}`);
         console.log(`   ✅ NIC Back: ${nicBackPath || 'Not uploaded'}`);
         console.log(`   ✅ BR Attachment: ${brAttachmentPath || 'Not uploaded'}`);
         console.log(`   ✅ Form1 Certificate: ${form1CertPath || 'Not uploaded'}`);
         console.log(`   ✅ Spa Banner: ${spaBannerPath || 'Not uploaded'}`);
+        console.log(`   ✅ Tax Registration: ${taxRegPath || 'Not uploaded'}`);
         console.log(`   ✅ Other Document: ${otherDocPath || 'Not uploaded'}`);
+        console.log(`   ✅ Facility Photos: ${filePaths.facilityPhotos ? filePaths.facilityPhotos.length + ' photos' : 'Not uploaded'}`);
+        console.log(`   ✅ Professional Certifications: ${filePaths.professionalCertifications ? filePaths.professionalCertifications.length + ' files' : 'Not uploaded'}`);
         if (paymentMethod === 'bank_transfer') {
             console.log(`   ✅ Bank Slip: ${filePaths.bankSlip || 'Not uploaded'} (saved to payments table)`);
         }
+        console.log('='.repeat(70) + '\n');
 
         // Generate unique login credentials for spa owner
         const uniqueUsername = generateUsername(spaName, referenceNumber);

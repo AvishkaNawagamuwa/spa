@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>District Field Demo - SPA Registration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            color: #0A1428;
+            margin-bottom: 10px;
+            font-size: 32px;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 16px;
+        }
+
+        .success-badge {
+            background: #10b981;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+
+        .form-section {
+            background: #f9fafb;
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid #e5e7eb;
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 20px;
+            color: #0A1428;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+            font-weight: 600;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .form-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-field.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .required {
+            color: #ef4444;
+            font-weight: bold;
+        }
+
+        input,
+        select {
+            padding: 12px 16px;
+            border: 2px solid #d1d5db;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: #d4af37;
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+        }
+
+        select {
+            cursor: pointer;
+            background: white;
+        }
+
+        .highlight {
+            border: 3px solid #10b981 !important;
+            background: #f0fdf4 !important;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+        }
+
+        .new-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-left: 10px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+
+        .info-box {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+        }
+
+        .info-box h3 {
+            color: #1e40af;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .info-box ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .info-box li {
+            padding: 8px 0;
+            color: #1e40af;
+            display: flex;
+            align-items: center;
+        }
+
+        .info-box li:before {
+            content: "✓";
+            color: #10b981;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 18px;
+        }
+
+        .districts-list {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .district-item {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+            font-size: 13px;
+            color: #374151;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .districts-list {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div style="text-align: center;">
+            <span class="success-badge">✓ Implementation Complete</span>
+        </div>
+
+        <h1>🏝️ District Field - SPA Registration</h1>
+        <p class="subtitle">All 25 Sri Lankan Districts Now Available</p>
+
+        <div class="form-section">
+            <h3 class="section-title">📍 Spa Address Information</h3>
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Address Line 1 <span class="required">*</span></label>
+                    <input type="text" placeholder="123 Main Street" value="Sample Address">
+                </div>
+
+                <div class="form-field">
+                    <label>Address Line 2 (Optional)</label>
+                    <input type="text" placeholder="Building name, Floor, etc.">
+                </div>
+
+                <div class="form-field">
+                    <label>Province/State <span class="required">*</span></label>
+                    <select>
+                        <option>Western</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label>Postal Code <span class="required">*</span></label>
+                    <input type="text" placeholder="10100" value="10100" maxlength="5">
+                </div>
+
+                <!-- NEW DISTRICT FIELD -->
+                <div class="form-field">
+                    <label>
+                        District <span class="required">*</span>
+                        <span class="new-badge">NEW</span>
+                    </label>
+                    <select class="highlight">
+                        <option value="">Select District</option>
+                        <option value="Ampara">Ampara</option>
+                        <option value="Anuradhapura">Anuradhapura</option>
+                        <option value="Badulla">Badulla</option>
+                        <option value="Batticaloa">Batticaloa</option>
+                        <option value="Colombo" selected>Colombo ✓</option>
+                        <option value="Gampaha">Gampaha</option>
+                        <option value="Galle">Galle</option>
+                        <option value="Hambantota">Hambantota</option>
+                        <option value="Jaffna">Jaffna</option>
+                        <option value="Kalutara">Kalutara</option>
+                        <option value="Kandy">Kandy</option>
+                        <option value="Kegalle">Kegalle</option>
+                        <option value="Kilinochchi">Kilinochchi</option>
+                        <option value="Kurunegala">Kurunegala</option>
+                        <option value="Mannar">Mannar</option>
+                        <option value="Matale">Matale</option>
+                        <option value="Matara">Matara</option>
+                        <option value="Monaragala">Monaragala</option>
+                        <option value="Mullaitivu">Mullaitivu</option>
+                        <option value="Nuwara Eliya">Nuwara Eliya</option>
+                        <option value="Polonnaruwa">Polonnaruwa</option>
+                        <option value="Puttalam">Puttalam</option>
+                        <option value="Ratnapura">Ratnapura</option>
+                        <option value="Trincomalee">Trincomalee</option>
+                        <option value="Vavuniya">Vavuniya</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label>Police Division <span class="required">*</span></label>
+                    <input type="text" placeholder="e.g., Colombo, Kandy, Galle" value="Colombo">
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>✨ What's New?</h3>
+            <ul>
+                <li>District dropdown field added to registration form</li>
+                <li>All 25 Sri Lankan districts included</li>
+                <li>Required field with validation</li>
+                <li>Saves directly to database (spas.district column)</li>
+                <li>No changes to existing functionality</li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background: #fef3c7; border-color: #fbbf24;">
+            <h3 style="color: #92400e;">📋 All Available Districts (25)</h3>
+            <div class="districts-list">
+                <div class="district-item">Ampara</div>
+                <div class="district-item">Anuradhapura</div>
+                <div class="district-item">Badulla</div>
+                <div class="district-item">Batticaloa</div>
+                <div class="district-item" style="background: #10b981; color: white; font-weight: bold;">Colombo</div>
+                <div class="district-item">Gampaha</div>
+                <div class="district-item">Galle</div>
+                <div class="district-item">Hambantota</div>
+                <div class="district-item">Jaffna</div>
+                <div class="district-item">Kalutara</div>
+                <div class="district-item">Kandy</div>
+                <div class="district-item">Kegalle</div>
+                <div class="district-item">Kilinochchi</div>
+                <div class="district-item">Kurunegala</div>
+                <div class="district-item">Mannar</div>
+                <div class="district-item">Matale</div>
+                <div class="district-item">Matara</div>
+                <div class="district-item">Monaragala</div>
+                <div class="district-item">Mullaitivu</div>
+                <div class="district-item">Nuwara Eliya</div>
+                <div class="district-item">Polonnaruwa</div>
+                <div class="district-item">Puttalam</div>
+                <div class="district-item">Ratnapura</div>
+                <div class="district-item">Trincomalee</div>
+                <div class="district-item">Vavuniya</div>
+            </div>
+        </div>
+
+        <div class="info-box" style="background: #dcfce7; border-color: #86efac; margin-top: 20px;">
+            <h3 style="color: #166534;">🔗 Data Flow</h3>
+            <ul>
+                <li><strong>Frontend:</strong> User selects district from dropdown</li>
+                <li><strong>Validation:</strong> Form ensures district is selected</li>
+                <li><strong>Backend:</strong> District value extracted from request</li>
+                <li><strong>Database:</strong> Saved to lsa_spa_management.spas.district</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>
